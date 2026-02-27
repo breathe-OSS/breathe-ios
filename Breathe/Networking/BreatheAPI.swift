@@ -16,7 +16,7 @@ enum APIError: LocalizedError {
     }
 }
 
-final class BreatheAPI {
+final class BreatheAPI: @unchecked Sendable {
     static let shared = BreatheAPI()
 
     private let baseURL = "https://api.breatheoss.app"

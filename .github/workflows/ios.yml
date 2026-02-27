@@ -1,0 +1,32 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install xtool
+      - name: Install xtool
+        run: brew install xtool-org/tap/xtool
+
+      - name: Build IPA
+        env:
+          XTOOL_APPLE_ID: ${{ secrets.APPLE_ID }}
+          XTOOL_APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: xtool dev build --ipa
+
+      # Download from the Actions tab on GitHub after each push
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Breathe-${{ github.run_number }}.ipa
+          path: .build/**/*.ipa
+          retention-days: 30

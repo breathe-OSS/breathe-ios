@@ -6,10 +6,13 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
 
-                // Zone picker
-                Section("Location") {
+                    // Zone picker
+                    Text("Location")
+                        .font(.headline)
+
                     if viewModel.zones.isEmpty && viewModel.isLoading {
                         HStack {
                             ProgressView()
@@ -23,30 +26,42 @@ struct HomeView: View {
                             }
                         }
                     }
-                }
-
-                // AQI card
-                if let aqi = viewModel.displayAqi, let response = viewModel.currentAqi {
-                    Section {
+                    
+                    if let aqi = viewModel.displayAqi,
+                       let response = viewModel.currentAqi {
+                        let position = min(max(Double(aqi) / 500.0, 0), 1)
+                        Label("Now Viewing", systemImage:"location.fill")
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .foregroundStyle(.secondary)
+                            )
+                        Text(viewModel.selectedZone?.name ?? "Air Quality")
+                            .font(.title.bold())
+                        // AQI card
                         VStack(alignment: .leading, spacing: 12) {
 
                             HStack(alignment: .lastTextBaseline, spacing: 12) {
+
                                 Text("\(aqi)")
                                     .font(.system(size: 72, weight: .bold, design: .rounded))
                                     .foregroundStyle(aqiColor(aqi))
 
+                                Spacer()
                                 VStack(alignment: .leading, spacing: 2) {
+
                                     Text(aqiLabel(aqi))
                                         .font(.headline)
                                         .foregroundStyle(aqiColor(aqi))
+
                                     if let pollutant = viewModel.displayPollutant {
                                         Label(pollutant, systemImage: "aqi.medium")
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
-
-                                Spacer()
                             }
 
                             // Standard badge
@@ -70,75 +85,135 @@ struct HomeView: View {
                                     .foregroundStyle(.tertiary)
                             }
                         }
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 28)
+                                .fill(aqiColor(aqi).opacity(0.15))
+                        )
                         .padding(.vertical, 6)
-                    } header: {
-                        Text("Air Quality")
-                    }
+                        ZStack(alignment: .leading) {
 
-                    // Pollutant breakdown
-                    if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
-                        Section("Breakdown") {
-                            ForEach(breakdown.sorted { $0.value > $1.value }, id: \.key) { key, value in
+    RoundedRectangle(cornerRadius: 4)
+        .fill(
+            LinearGradient(
+                colors: [
+                    Color(red: 0/255, green: 228/255, blue: 0/255),
+                    Color(red: 255/255, green: 255/255, blue: 0/255),
+                    Color(red: 255/255, green: 126/255, blue: 0/255),
+                    Color(red: 255/255, green: 0/255, blue: 0/255),
+                    Color(red: 143/255, green: 63/255, blue: 151/255),
+                    Color(red: 126/255, green: 0/255, blue: 35/255)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .frame(height: 8)
+
+    GeometryReader { geo in
+        Circle()
+            .fill(Color.white)
+            .frame(width: 16, height: 16)
+            .shadow(radius: 2)
+            .offset(x: geo.size.width * position - 8)
+    }
+    .frame(height: 16)
+}
+HStack(spacing: 12){
+        ZStack {
+            Circle()
+                .fill(Color.red.opacity(0.2))
+                .frame(width: 44, height: 44)
+
+            Image(systemName: "lungs.fill")
+                .foregroundStyle(.red)
+        }
+        VStack(alignment: .leading) {
+            Text("≈ \(Int(Double(aqi) / 22)) cigarettes")
+                .font(.headline)
+            Text("Equivalent PM2.5 inhalation today")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+                        // Pollutant breakdown
+                        if let breakdown = response.aqiBreakdown,
+                           !breakdown.isEmpty {
+
+                            Text("Breakdown")
+                                .font(.headline)
+
+                            ForEach(
+                                breakdown.sorted { $0.value > $1.value },
+                                id: \.key
+                            ) { key, value in
                                 HStack {
                                     Text(key.uppercased())
                                         .font(.subheadline.monospaced())
                                         .foregroundStyle(.primary)
+
                                     Spacer()
+
                                     Text("\(value)")
                                         .fontWeight(.semibold)
                                         .foregroundStyle(aqiColor(value))
                                 }
                             }
                         }
-                    }
 
-                    // Trends
-                    if let trends = response.trends {
-                        Section("Trends") {
+                        // Trends
+                        if let trends = response.trends {
+
+                            Text("Trends")
+                                .font(.headline)
+
                             if let h = trends.change1h {
                                 trendRow(label: "Last 1 hour", value: h)
                             }
+
                             if let h = trends.change24h {
                                 trendRow(label: "Last 24 hours", value: h)
                             }
                         }
                     }
                 }
+                .padding()
             }
-            .navigationTitle("Breathe")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                // AQI standard toggle
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        viewModel.isUsAqi.toggle()
-                    } label: {
-                        Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+        }
+        .navigationTitle("Breathe")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
 
-                // Loading spinner in nav bar during background refresh
-                ToolbarItem(placement: .topBarLeading) {
-                    if viewModel.isLoading && viewModel.currentAqi != nil {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    }
+            // AQI standard toggle
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.isUsAqi.toggle()
+                } label: {
+                    Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Loading spinner
+            ToolbarItem(placement: .topBarLeading) {
+                if viewModel.isLoading && viewModel.currentAqi != nil {
+                    ProgressView()
+                        .scaleEffect(0.8)
                 }
             }
-            .refreshable {
-                await viewModel.refresh()
-            }
-            .alert("Error", isPresented: .constant(viewModel.error != nil)) {
-                Button("Retry")   { Task { await viewModel.refresh() } }
-                Button("Dismiss", role: .cancel) { viewModel.dismissError() }
-            } message: {
-                Text(viewModel.error ?? "")
-            }
+        }
+        .refreshable {
+            await viewModel.refresh()
+        }
+        .alert("Error", isPresented: .constant(viewModel.error != nil)) {
+            Button("Retry") { Task { await viewModel.refresh() } }
+            Button("Dismiss", role: .cancel) { viewModel.dismissError() }
+        } message: {
+            Text(viewModel.error ?? "")
         }
     }
 
@@ -147,20 +222,22 @@ struct HomeView: View {
         HStack {
             Text(label)
                 .font(.subheadline)
+
             Spacer()
+
             HStack(spacing: 3) {
                 Image(systemName: value >= 0 ? "arrow.up" : "arrow.down")
                 Text("\(abs(value))")
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(value <= 0 ? .green : .red) // lower = better
+            .foregroundStyle(value <= 0 ? .green : .red)
         }
     }
 
     private func aqiColor(_ value: Int) -> Color {
         switch value {
         case ..<51:  return .green
-        case ..<101: return Color(red: 0.8, green: 0.7, blue: 0) // yellow visible in dark mode
+        case ..<101: return Color(red: 0.8, green: 0.7, blue: 0)
         case ..<151: return .orange
         case ..<201: return .red
         case ..<301: return .purple

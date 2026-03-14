@@ -3,190 +3,233 @@ import SwiftUI
 struct HomeView: View {
 
     @StateObject private var viewModel = BreatheViewModel()
+
     let columns = [
-    GridItem(.flexible()),
-    GridItem(.flexible())
+        GridItem(.flexible()),
+        GridItem(.flexible())
     ]
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 22) {
 
-                    // Zone picker
                     Text("Location")
-                        .font(.headline)
+                        .font(.system(.headline, design: .rounded))
+                        .fontWeight(.semibold)
+                        .fontWidth(.condensed)
+                        .foregroundStyle(.secondary)
 
                     if viewModel.zones.isEmpty && viewModel.isLoading {
                         HStack {
                             ProgressView()
                             Text("Loading zones…")
+                                .font(.system(.subheadline, design: .rounded))
+                                .fontWidth(.condensed)
                                 .foregroundStyle(.secondary)
                         }
                     } else {
                         Picker("Zone", selection: $viewModel.selectedZone) {
                             ForEach(viewModel.zones) { zone in
-                                Text(zone.name).tag(Optional(zone))
+                                Text(zone.name)
+                                    .font(.system(.body, design: .rounded))
+                                    .fontWidth(.standard)
+                                    .tag(Optional(zone))
                             }
                         }
                     }
-                    
+
                     if let aqi = viewModel.displayAqi,
                        let response = viewModel.currentAqi {
+
                         let position = min(max(Double(aqi) / 500.0, 0), 1)
+
                         Label("Now Viewing", systemImage:"location.fill")
-                            .padding(.horizontal, 8)
+                            .font(.system(.caption, design: .rounded))
+                            .fontWeight(.medium)
+                            .fontWidth(.compressed)
+                            .padding(.horizontal, 10)
                             .padding(.vertical, 4)
                             .background(
                                 Capsule()
                                     .fill(.ultraThinMaterial)
-                                    .foregroundStyle(.secondary)
                             )
-                        Text(viewModel.selectedZone?.name ?? "Air Quality")
-                            .font(.title.bold())
-                        // AQI card
-                        VStack(alignment: .leading, spacing: 12) {
+                            .foregroundStyle(.secondary)
 
-                            HStack(alignment: .lastTextBaseline, spacing: 12) {
+                        Text(viewModel.selectedZone?.name ?? "Air Quality")
+                            .font(.system(.title2, design: .rounded))
+                            .fontWeight(.bold)
+                            .fontWidth(.expanded)
+
+                        VStack(alignment: .leading, spacing: 14) {
+
+                            HStack(alignment: .lastTextBaseline, spacing: 14) {
 
                                 Text("\(aqi)")
-                                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                                    .font(.system(size: 72, weight: .heavy, design: .rounded))
+                                    .fontWidth(.expanded)
+                                    .monospacedDigit()
                                     .foregroundStyle(aqiColor(aqi))
 
                                 Spacer()
-                                VStack(alignment: .leading, spacing: 2) {
+
+                                VStack(alignment: .leading, spacing: 4) {
 
                                     Text(aqiLabel(aqi))
-                                        .font(.headline)
+                                        .font(.system(.headline, design: .rounded))
+                                        .fontWeight(.semibold)
+                                        .fontWidth(.condensed)
                                         .foregroundStyle(aqiColor(aqi))
 
                                     if let pollutant = viewModel.displayPollutant {
                                         Label(pollutant, systemImage: "aqi.medium")
-                                            .font(.subheadline)
+                                            .font(.system(.subheadline, design: .rounded))
+                                            .fontWidth(.condensed)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
                             }
 
-                            // Standard badge
                             Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
+                                .font(.system(.caption, design: .rounded))
+                                .fontWeight(.semibold)
+                                .fontWidth(.compressed)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
                                 .background(.ultraThinMaterial, in: Capsule())
 
-                            // Warnings
                             if let warning = response.warning {
                                 Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
+                                    .font(.system(.caption, design: .rounded))
+                                    .fontWidth(.condensed)
                                     .foregroundStyle(.orange)
                             }
 
-                            // Last updated
                             if let ts = response.lastUpdateStr {
                                 Text("Updated \(ts)")
-                                    .font(.caption2)
+                                    .font(.system(.caption2, design: .rounded))
+                                    .fontWidth(.standard)
                                     .foregroundStyle(.tertiary)
                             }
                         }
-                        .padding(20)
+                        .padding(22)
                         .background(
                             RoundedRectangle(cornerRadius: 28)
                                 .fill(aqiColor(aqi).opacity(0.15))
                         )
                         .padding(.vertical, 6)
+
                         ZStack(alignment: .leading) {
 
-    RoundedRectangle(cornerRadius: 4)
-        .fill(
-            LinearGradient(
-                colors: [
-                    Color(red: 0/255, green: 228/255, blue: 0/255),
-                    Color(red: 255/255, green: 255/255, blue: 0/255),
-                    Color(red: 255/255, green: 126/255, blue: 0/255),
-                    Color(red: 255/255, green: 0/255, blue: 0/255),
-                    Color(red: 143/255, green: 63/255, blue: 151/255),
-                    Color(red: 126/255, green: 0/255, blue: 35/255)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
-        .frame(height: 8)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0/255, green: 228/255, blue: 0/255),
+                                            Color(red: 255/255, green: 255/255, blue: 0/255),
+                                            Color(red: 255/255, green: 126/255, blue: 0/255),
+                                            Color(red: 255/255, green: 0/255, blue: 0/255),
+                                            Color(red: 143/255, green: 63/255, blue: 151/255),
+                                            Color(red: 126/255, green: 0/255, blue: 35/255)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(height: 8)
 
-    GeometryReader { geo in
-        Circle()
-            .fill(Color.white)
-            .frame(width: 16, height: 16)
-            .shadow(radius: 2)
-            .offset(x: geo.size.width * position - 8)
-    }
-    .frame(height: 16)
-}
-HStack(spacing: 12){
-        ZStack {
-            Circle()
-                .fill(Color.red.opacity(0.2))
-                .frame(width: 44, height: 44)
+                            GeometryReader { geo in
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 16, height: 16)
+                                    .shadow(radius: 2)
+                                    .offset(x: geo.size.width * position - 8)
+                            }
+                            .frame(height: 16)
+                        }
 
-            Image(systemName: "lungs.fill")
-                .foregroundStyle(.red)
-        }
-        VStack(alignment: .leading) {
-            Text("≈ \(Int(Double(aqi) / 22)) cigarettes")
-                .font(.headline)
-            Text("Equivalent PM2.5 inhalation today")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-    }
-                        // Pollutant breakdown
-                    Text("Concentrations")
-    .font(.headline)
+                        HStack(spacing: 12){
+                            ZStack {
+                                Circle()
+                                    .fill(Color.red.opacity(0.2))
+                                    .frame(width: 44, height: 44)
 
-if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
+                                Image(systemName: "lungs.fill")
+                                    .foregroundStyle(.red)
+                            }
 
-    LazyVGrid(columns: columns, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("≈ \(Int(Double(aqi) / 22)) cigarettes")
+                                    .font(.system(.headline, design: .rounded))
+                                    .fontWeight(.bold)
+                                    .fontWidth(.condensed)
 
-        ForEach(
-            breakdown.sorted { $0.value > $1.value },
-            id: \.key
-        ) { key, value in
+                                Text("Equivalent PM2.5 inhalation today")
+                                    .font(.system(.caption, design: .rounded))
+                                    .fontWidth(.standard)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
 
-            ZStack {
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(Color(.systemFill).opacity(0.5))
+                        Text("Concentrations")
+                            .font(.system(.headline, design: .rounded))
+                            .fontWeight(.semibold)
+                            .fontWidth(.condensed)
 
-                HStack {
-                    Text(key.uppercased())
-                        .font(.subheadline.monospaced().bold())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        if let breakdown = response.aqiBreakdown,
+                           !breakdown.isEmpty {
 
-                    Spacer()
+                            LazyVGrid(columns: columns, spacing: 12) {
 
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(value)")
-                            .font(.title3.bold())
-                            .foregroundStyle(aqiColor(value))
+                                ForEach(
+                                    breakdown.sorted { $0.value > $1.value },
+                                    id: \.key
+                                ) { key, value in
 
-                        Text("µg/m³")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding()
-            }
-            .aspectRatio(16/6, contentMode: .fit)
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 18)
+                                            .fill(Color(.systemFill).opacity(0.4))
 
-        }
-    }
-}
-                        // Trends
+                                        HStack {
+
+                                            Text(key.uppercased())
+                                                .font(.system(.caption, design: .monospaced))
+                                                .fontWeight(.bold)
+                                                .fontWidth(.compressed)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 4)
+                                                .background(.ultraThinMaterial, in: Capsule())
+
+                                            Spacer()
+
+                                            VStack(alignment: .trailing, spacing: 2) {
+
+                                                Text("\(value)")
+                                                    .font(.system(.title3, design: .rounded))
+                                                    .fontWeight(.bold)
+                                                    .fontWidth(.expanded)
+                                                    .monospacedDigit()
+                                                    .foregroundStyle(aqiColor(value))
+
+                                                Text("µg/m³")
+                                                    .font(.system(.caption2, design: .rounded))
+                                                    .fontWidth(.standard)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        .padding()
+                                    }
+                                    .aspectRatio(16/6, contentMode: .fit)
+                                }
+                            }
+                        }
+
                         if let trends = response.trends {
 
                             Text("Trends")
-                                .font(.headline)
+                                .font(.system(.headline, design: .rounded))
+                                .fontWeight(.semibold)
+                                .fontWidth(.condensed)
 
                             if let h = trends.change1h {
                                 trendRow(label: "Last 1 hour", value: h)
@@ -205,21 +248,21 @@ if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
 
-            // AQI standard toggle
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.isUsAqi.toggle()
                 } label: {
                     Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
+                        .font(.system(.caption, design: .rounded))
+                        .fontWeight(.semibold)
+                        .fontWidth(.compressed)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(.ultraThinMaterial, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
 
-            // Loading spinner
             ToolbarItem(placement: .topBarLeading) {
                 if viewModel.isLoading && viewModel.currentAqi != nil {
                     ProgressView()
@@ -242,15 +285,19 @@ if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
     private func trendRow(label: String, value: Int) -> some View {
         HStack {
             Text(label)
-                .font(.subheadline)
+                .font(.system(.subheadline, design: .rounded))
+                .fontWidth(.condensed)
 
             Spacer()
 
             HStack(spacing: 3) {
                 Image(systemName: value >= 0 ? "arrow.up" : "arrow.down")
                 Text("\(abs(value))")
+                    .monospacedDigit()
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.system(.subheadline, design: .rounded))
+            .fontWeight(.semibold)
+            .fontWidth(.expanded)
             .foregroundStyle(value <= 0 ? .green : .red)
         }
     }

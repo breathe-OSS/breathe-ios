@@ -9,16 +9,21 @@ struct HomeView: View {
         GridItem(.flexible())
     ]
 
+    func calculateCigarettes(pm25: Double) -> Double {
+        let cigs = pm25 / 22.0
+        return (cigs * 10).rounded() / 10
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
 
-                    Text("Location")
-                        .font(.system(.title2, design: .rounded))
+                    Text("Pinned Location")
+                        .font(.system(.title, design: .rounded))
                         .fontWeight(.semibold)
                         .fontWidth(.condensed)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
 
                     if viewModel.zones.isEmpty && viewModel.isLoading {
                         HStack {
@@ -32,8 +37,10 @@ struct HomeView: View {
                             Image(systemName: "pin.slash")
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
+
                             Text("No locations pinned")
                                 .font(.headline)
+
                             Text("Go to the Search tab and pin some locations to monitor them here.")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -42,65 +49,85 @@ struct HomeView: View {
                         }
                         .padding(.vertical, 40)
                     } else {
-    ScrollViewReader { proxy in
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
 
-                ForEach(viewModel.pinnedZones) { zone in
+                        ScrollViewReader { proxy in
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
 
-                    let isSelected = zone.id == viewModel.selectedZone?.id
+                                    ForEach(viewModel.pinnedZones) { zone in
 
-                    Text(zone.name)
-                        .font(.system(.body, design: .rounded))
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                                        let isSelected = zone.id == viewModel.selectedZone?.id
 
-                        .background(
-                            Capsule()
-                                .fill(
-                                    isSelected
-                                    ? Color.accentColor
-                                    : Color(.tertiaryLabel).opacity(0.35)
-                                )
-                        )
-
-                        .foregroundStyle(isSelected ? .white : .primary)
-
-                        .scaleEffect(isSelected ? 1.05 : 1)
-
-                        .animation(.easeInOut(duration: 0.15), value: viewModel.selectedZone)
-
-                        .id(zone.id)
-
-                        .onTapGesture {
-                            viewModel.selectedZone = zone
-                            withAnimation {
-                                proxy.scrollTo(zone.id, anchor: .center)
+                                        Text(zone.name)
+                                            .font(.system(.body, design: .rounded))
+                                            .fontWeight(.semibold)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                Capsule()
+                                                    .fill(
+                                                        isSelected
+                                                        ? Color.accentColor
+                                                        : Color(.tertiaryLabel).opacity(0.35)
+                                                    )
+                                            )
+                                            .foregroundStyle(isSelected ? .white : .primary)
+                                            .scaleEffect(isSelected ? 1.1 : 1)
+                                            .animation(.easeInOut(duration: 0.15), value: viewModel.selectedZone)
+                                            .id(zone.id)
+                                            .onTapGesture {
+                                                viewModel.selectedZone = zone
+                                                withAnimation {
+                                                    proxy.scrollTo(zone.id, anchor: .center)
+                                                }
+                                            }
+                                    }
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 4)
                             }
                         }
-                }
-            }
-            .padding(.horizontal, 2)
-        }
-    }
-}
+                    }
 
                     if let aqi = viewModel.displayAqi,
                        let response = viewModel.currentAqi {
 
                         let position = min(max(Double(aqi) / 500.0, 0), 1)
 
-                        Label("Now Viewing", systemImage:"location.fill")
-                            .font(.system(.caption, design: .rounded))
-                            .fontWeight(.medium)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(.ultraThinMaterial))
-                            .foregroundStyle(.secondary)
+                        // --- provider detection (Android parity)
+                        let provider = response.source ?? ""
+let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo")
+let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
+                        // --- Now Viewing + provider logo
+                        HStack(spacing: 8) {
+
+                            Label("Now Viewing", systemImage:"location.fill")
+                                .font(.system(.caption, design: .rounded))
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(.ultraThinMaterial))
+                                .foregroundStyle(.secondary)
+
+                            if isAirGradient {
+                                Image("airgradient_logo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 16)
+                                    .opacity(0.9)
+                            }
+
+                            if isOpenMeteo {
+                                Image("openmeteo_logo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 16)
+                                    .opacity(0.9)
+                            }
+                        }
 
                         Text(viewModel.selectedZone?.name ?? "Air Quality")
-                            .font(.system(.title2, design: .rounded))
+                            .font(.system(.largeTitle, design: .rounded))
                             .fontWeight(.bold)
                             .fontWidth(.expanded)
 
@@ -115,19 +142,26 @@ struct HomeView: View {
 
                                 Spacer()
 
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .trailing, spacing: 2) {
 
-                                    Text(aqiLabel(aqi))
-                                        .font(.system(.headline, design: .rounded))
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(aqiColor(aqi))
+                                    Text("Primary")
+                                        .font(.system(.caption, design: .rounded))
+                                        .foregroundStyle(.secondary)
 
                                     if let pollutant = viewModel.displayPollutant {
-                                        Label(pollutant, systemImage: "aqi.medium")
-                                            .font(.system(.subheadline, design: .rounded))
+                                        Text(formatPollutant(pollutant))
+                                            .font(.system(.title, design: .rounded))
+                                            .fontWeight(.bold)
+                                            .foregroundStyle(.primary)
+                                    }
+
+                                    if let ts = response.lastUpdateStr {
+                                        Text(ts)
+                                            .font(.system(.caption, design: .rounded))
                                             .foregroundStyle(.secondary)
                                     }
                                 }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
                             }
 
                             Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
@@ -135,7 +169,11 @@ struct HomeView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(.ultraThinMaterial, in: Capsule())
+                                .foregroundStyle(.background)
+                                .background(
+                                    Capsule()
+                                        .fill(aqiColor(aqi))
+                                )
 
                             if let warning = response.warning {
                                 Label(warning, systemImage: "exclamationmark.triangle.fill")
@@ -156,18 +194,23 @@ struct HomeView: View {
                         )
                         .padding(.vertical, 6)
 
+                        Text(aqiLabel(aqi))
+                            .font(.system(.headline, design: .rounded))
+                            .fontWeight(.bold)
+                            .foregroundStyle(aqiColor(aqi))
+
                         ZStack(alignment: .leading) {
 
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(
                                     LinearGradient(
-                                        colors: [
-                                            Color(red: 0/255, green: 228/255, blue: 0/255),
-                                            Color(red: 255/255, green: 255/255, blue: 0/255),
-                                            Color(red: 255/255, green: 126/255, blue: 0/255),
-                                            Color(red: 255/255, green: 0/255, blue: 0/255),
-                                            Color(red: 143/255, green: 63/255, blue: 151/255),
-                                            Color(red: 126/255, green: 0/255, blue: 35/255)
+                                        stops: [
+                                            .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),
+                                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),
+                                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),
+                                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),
+                                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),
+                                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)
                                         ],
                                         startPoint: .leading,
                                         endPoint: .trailing
@@ -185,7 +228,16 @@ struct HomeView: View {
                             .frame(height: 16)
                         }
 
-                        HStack(spacing: 12){
+                        // --- PM2.5 extraction
+                        let pm25 =
+                        response.concentrations?["pm2.5"]
+                        ?? response.concentrations?["pm2_5"]
+                        ?? 0.0
+
+                        let cigarettes = calculateCigarettes(pm25: pm25)
+
+                        HStack(spacing: 12) {
+
                             ZStack {
                                 Circle()
                                     .fill(Color.red.opacity(0.2))
@@ -196,7 +248,7 @@ struct HomeView: View {
                             }
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("≈ \(Int(Double(aqi) / 22)) cigarettes")
+                                Text("≈ \(cigarettes, specifier: "%.1f") cigarettes")
                                     .font(.system(.headline, design: .rounded))
                                     .fontWeight(.bold)
 
@@ -207,7 +259,7 @@ struct HomeView: View {
                         }
 
                         Text("Concentrations")
-                            .font(.system(.headline, design: .rounded))
+                            .font(.system(.title, design: .rounded))
                             .fontWeight(.semibold)
 
                         if let breakdown = response.aqiBreakdown,
@@ -221,6 +273,7 @@ struct HomeView: View {
                                 ) { key, value in
 
                                     ZStack {
+
                                         RoundedRectangle(cornerRadius: 18)
                                             .fill(Color(.systemFill).opacity(0.4))
 
@@ -229,6 +282,7 @@ struct HomeView: View {
                                             Text(formatPollutant(key))
                                                 .font(.system(.body, design: .rounded))
                                                 .fontWeight(.semibold)
+                                                .foregroundStyle(.primary.opacity(0.6))
                                                 .padding(.horizontal, 14)
                                                 .padding(.vertical, 8)
                                                 .background(.ultraThinMaterial, in: Capsule())
@@ -238,7 +292,7 @@ struct HomeView: View {
                                             VStack(alignment: .trailing, spacing: 2) {
 
                                                 Text("\(value)")
-                                                    .font(.system(.title3, design: .rounded))
+                                                    .font(.system(.title2, design: .rounded))
                                                     .fontWeight(.bold)
                                                     .monospacedDigit()
                                                     .foregroundStyle(aqiColor(value))
@@ -250,7 +304,7 @@ struct HomeView: View {
                                         }
                                         .padding()
                                     }
-                                    .aspectRatio(16/7, contentMode: .fit)
+                                    .aspectRatio(16/6.5, contentMode: .fit)
                                 }
                             }
                         }
@@ -284,6 +338,7 @@ struct HomeView: View {
     @ViewBuilder
     private func trendRow(label: String, value: Int) -> some View {
         HStack {
+
             Text(label)
                 .font(.system(.subheadline, design: .rounded))
 
@@ -291,6 +346,7 @@ struct HomeView: View {
 
             HStack(spacing: 3) {
                 Image(systemName: value >= 0 ? "arrow.up" : "arrow.down")
+
                 Text("\(abs(value))")
                     .monospacedDigit()
             }

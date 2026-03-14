@@ -1,29 +1,44 @@
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class BreatheViewModel: ObservableObject {
 
     @Published var zones: [Zone] = []
+    
+    @Published var pinnedZoneIds: [String] = [] {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(pinnedZoneIds) {
+                UserDefaults.standard.set(encoded, forKey: "pinned_zones")
+            }
+        }
+    }
+    
+    var pinnedZones: [Zone] {
+        zones.filter { pinnedZoneIds.contains($0.id) }
+    }
+
     @Published var selectedZone: Zone? {
         didSet {
             guard let zone = selectedZone else { return }
             Task { await fetchAqi(for: zone) }
         }
     }
+    
     @Published var currentAqi: AqiResponse?
     @Published var isLoading = false
     @Published var error: String?
 
     @Published var isUsAqi: Bool {
-        didSet { UserDefaults.standard.set(isUsAqi, forKey: "is_us_aqi") }
+        didSet {
+            UserDefaults.standard.set(isUsAqi, forKey: "is_us_aqi")
+        }
     }
 
     /// Returns the display AQI value based on the selected standard.
     var displayAqi: Int? {
         guard let r = currentAqi else { return nil }
-        // isUsAqi = false → Indian NAQI (nAqi field)
-        // isUsAqi = true  → US AQI (usAqi field, fallback to nAqi)
         return isUsAqi ? (r.usAqi ?? r.nAqi) : r.nAqi
     }
 
@@ -33,7 +48,13 @@ final class BreatheViewModel: ObservableObject {
     }
 
     init() {
-        isUsAqi = UserDefaults.standard.bool(forKey: "is_us_aqi")
+        self.isUsAqi = UserDefaults.standard.bool(forKey: "is_us_aqi")
+        
+        if let data = UserDefaults.standard.data(forKey: "pinned_zones"),
+           let decoded = try? JSONDecoder().decode([String].self, from: data) {
+            self.pinnedZoneIds = decoded
+        }
+        
         Task { await loadZones() }
     }
 
@@ -43,13 +64,18 @@ final class BreatheViewModel: ObservableObject {
         do {
             let fetched = try await BreatheAPI.shared.getZones()
             zones = fetched
-            if selectedZone == nil, let first = fetched.first {
-                selectedZone = first          // triggers didSet → fetchAqi
+            
+            // Set selection to first pinned zone if exists, otherwise keep nil
+            if selectedZone == nil {
+                let currentPinned = pinnedZones
+                if let firstPinned = currentPinned.first {
+                    selectedZone = firstPinned
+                }
             }
         } catch {
             self.error = error.localizedDescription
-            isLoading = false
         }
+        isLoading = false
     }
 
     func fetchAqi(for zone: Zone) async {
@@ -72,5 +98,21 @@ final class BreatheViewModel: ObservableObject {
 
     func dismissError() {
         error = nil
+    }
+    
+    func togglePin(for zone: Zone) {
+        var currentIds = pinnedZoneIds
+        if let index = currentIds.firstIndex(of: zone.id) {
+            currentIds.remove(at: index)
+        } else {
+            currentIds.append(zone.id)
+        }
+        pinnedZoneIds = currentIds
+        
+        // Handle selection logic when pinning/unpinning
+        let currentPinned = pinnedZones
+        if !currentPinned.contains(where: { $0.id == selectedZone?.id }) {
+            selectedZone = currentPinned.first
+        }
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
 
-    @StateObject private var viewModel = BreatheViewModel()
+    @EnvironmentObject private var viewModel: BreatheViewModel
 
     let columns = [
         GridItem(.flexible()),
@@ -27,9 +27,23 @@ struct HomeView: View {
                                 .font(.system(.subheadline, design: .rounded))
                                 .foregroundStyle(.secondary)
                         }
+                    } else if viewModel.pinnedZones.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "pin.slash")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("No locations pinned")
+                                .font(.headline)
+                            Text("Go to the Search tab and pin some locations to monitor them here.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(.vertical, 40)
                     } else {
                         Picker("Zone", selection: $viewModel.selectedZone) {
-                            ForEach(viewModel.zones) { zone in
+                            ForEach(viewModel.pinnedZones) { zone in
                                 Text(zone.name)
                                     .font(.system(.body, design: .rounded))
                                     .tag(Optional(zone))

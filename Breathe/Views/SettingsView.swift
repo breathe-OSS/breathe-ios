@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @StateObject private var viewModel = BreatheViewModel()
+    @EnvironmentObject private var viewModel: BreatheViewModel
     @AppStorage("isDarkTheme") private var isDarkTheme = false
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     

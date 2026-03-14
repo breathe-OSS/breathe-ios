@@ -140,31 +140,48 @@ HStack(spacing: 12){
         }
     }
                         // Pollutant breakdown
-                    LazyVGrid(columns: columns, spacing: 12) { 
-                        if let breakdown = response.aqiBreakdown,
-                           !breakdown.isEmpty {
+                    Text("Concentrations")
+    .font(.headline)
 
-                            Text("Concentrations")
-                                .font(.headline)
+if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
 
-                            ForEach(
-                                breakdown.sorted { $0.value > $1.value },
-                                id: \.key
-                            ) { key, value in
-                                HStack {
-                                    Text(key.uppercased())
-                                        .font(.subheadline.monospaced())
-                                        .foregroundStyle(.primary)
+    LazyVGrid(columns: columns, spacing: 12) {
 
-                                    Spacer()
+        ForEach(
+            breakdown.sorted { $0.value > $1.value },
+            id: \.key
+        ) { key, value in
 
-                                    Text("\(value)")
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(aqiColor(value))
-                                }
-                            }
-                        }
+            ZStack {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(.systemFill).opacity(0.5))
+
+                HStack {
+                    Text(key.uppercased())
+                        .font(.subheadline.monospaced().bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(value)")
+                            .font(.title3.bold())
+                            .foregroundStyle(aqiColor(value))
+
+                        Text("µg/m³")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
+                }
+                .padding()
+            }
+            .aspectRatio(16/6, contentMode: .fit)
+
+        }
+    }
+}
                         // Trends
                         if let trends = response.trends {
 

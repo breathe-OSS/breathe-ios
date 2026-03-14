@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
 
     @EnvironmentObject private var viewModel: BreatheViewModel
+    @AppStorage("animationsEnabled") private var animationsEnabled = true
 
     let columns = [
         GridItem(.flexible()),
@@ -73,11 +74,16 @@ struct HomeView: View {
                                             )
                                             .foregroundStyle(isSelected ? .white : .primary)
                                             .scaleEffect(isSelected ? 1.1 : 1)
-                                            .animation(.easeInOut(duration: 0.15), value: viewModel.selectedZone)
+                                            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: viewModel.selectedZone)
                                             .id(zone.id)
                                             .onTapGesture {
-                                                viewModel.selectedZone = zone
-                                                withAnimation {
+                                                if animationsEnabled {
+                                                    withAnimation {
+                                                        viewModel.selectedZone = zone
+                                                        proxy.scrollTo(zone.id, anchor: .center)
+                                                    }
+                                                } else {
+                                                    viewModel.selectedZone = zone
                                                     proxy.scrollTo(zone.id, anchor: .center)
                                                 }
                                             }
@@ -94,11 +100,12 @@ struct HomeView: View {
 
                         let position = min(max(Double(aqi) / 500.0, 0), 1)
 
-                        // --- provider detection (Android parity)
-                        let provider = response.source ?? ""
-let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo")
-let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-                        // --- Now Viewing + provider logo
+                        // --- provider detection
+                        let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
+                        let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
+                        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
+                        
+                        // --- provider logo
                         HStack(spacing: 8) {
 
                             Label("Now Viewing", systemImage:"location.fill")
@@ -108,21 +115,38 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                 .padding(.vertical, 4)
                                 .background(Capsule().fill(.ultraThinMaterial))
                                 .foregroundStyle(.secondary)
+                                
+                            if isAirGradient {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 6, height: 6)
+                                    Text("Live Ground Sensors")
+                                        .font(.system(.caption, design: .rounded))
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else if isOpenMeteo {
+                                Text("Satellite & Model Data")
+                                    .font(.system(.caption, design: .rounded))
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
 
                             if isAirGradient {
                                 Image("airgradient_logo")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(height: 16)
-                                    .opacity(0.9)
+                                    .frame(height: 20)
                             }
 
                             if isOpenMeteo {
                                 Image("openmeteo_logo")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(height: 16)
-                                    .opacity(0.9)
+                                    .frame(height: 20)
                             }
                         }
 
@@ -132,6 +156,31 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                             .fontWidth(.expanded)
 
                         VStack(alignment: .leading, spacing: 14) {
+                        
+                            HStack {
+                                Text(aqiLabel(aqi))
+                                    .font(.system(.title3, design: .rounded))
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(aqiColor(aqi))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(.background.opacity(0.8))
+                                    )
+                                Spacer()
+                                
+                                Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
+                                    .font(.system(.caption, design: .rounded))
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .foregroundStyle(.background)
+                                    .background(
+                                        Capsule()
+                                            .fill(aqiColor(aqi))
+                                    )
+                            }
 
                             HStack(alignment: .lastTextBaseline, spacing: 14) {
 
@@ -163,22 +212,34 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                 }
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             }
+                            
+                            if let trends = response.trends {
+                                Divider()
+                                    .background(aqiColor(aqi).opacity(0.3))
+                                    .padding(.vertical, 4)
 
-                            Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
-                                .font(.system(.caption, design: .rounded))
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .foregroundStyle(.background)
-                                .background(
-                                    Capsule()
-                                        .fill(aqiColor(aqi))
-                                )
+                                HStack {
+                                    if let h = trends.change1h {
+                                        trendItem(label: "1h", value: h)
+                                    }
+                                    
+                                    Spacer()
 
-                            if let warning = response.warning {
+                                    if let d = trends.change24h {
+                                        trendItem(label: "24h", value: d)
+                                    }
+                                }
+                            }
+
+                            if let warning = response.warning, !warning.isEmpty {
                                 Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.system(.caption, design: .rounded))
-                                    .foregroundStyle(.orange)
+                                    .font(.system(.footnote, design: .rounded))
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.red)
+                                    .padding()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.red.opacity(0.15))
+                                    .cornerRadius(12)
                             }
 
                             if let ts = response.lastUpdateStr {
@@ -193,11 +254,7 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                 .fill(aqiColor(aqi).opacity(0.15))
                         )
                         .padding(.vertical, 6)
-
-                        Text(aqiLabel(aqi))
-                            .font(.system(.headline, design: .rounded))
-                            .fontWeight(.bold)
-                            .foregroundStyle(aqiColor(aqi))
+                        .animation(animationsEnabled ? .snappy : .none, value: aqi)
 
                         ZStack(alignment: .leading) {
 
@@ -206,11 +263,11 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                     LinearGradient(
                                         stops: [
                                             .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),
-                                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),
-                                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),
-                                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),
-                                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),
-                                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)
+                                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.16),
+                                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.33),
+                                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.50),
+                                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.66),
+                                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 1.0)
                                         ],
                                         startPoint: .leading,
                                         endPoint: .trailing
@@ -219,14 +276,27 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                 .frame(height: 8)
 
                             GeometryReader { geo in
-                                Circle()
-                                    .fill(Color.white)
-                                    .frame(width: 16, height: 16)
-                                    .shadow(radius: 2)
-                                    .offset(x: geo.size.width * position - 8)
+                                let xOffset = geo.size.width * position - 8
+                                ZStack(alignment: .top) {
+                                    Circle()
+                                        .fill(Color.white)
+                                        .frame(width: 16, height: 16)
+                                        .shadow(radius: 2)
+                                        .offset(x: xOffset)
+                                        .animation(animationsEnabled ? .spring(response: 0.6, dampingFraction: 0.7) : .none, value: xOffset)
+                                        
+                                    Text(aqiLabel(aqi))
+                                        .font(.system(.caption2, design: .rounded))
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(Color.primary)
+                                        .offset(x: xOffset - 20, y: -20)
+                                        .animation(animationsEnabled ? .spring(response: 0.6, dampingFraction: 0.7) : .none, value: xOffset)
+                                }
                             }
                             .frame(height: 16)
                         }
+                        .padding(.top, 10)
+                        .padding(.bottom, 20)
 
                         // --- PM2.5 extraction
                         let pm25 =
@@ -261,6 +331,7 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                         Text("Concentrations")
                             .font(.system(.title, design: .rounded))
                             .fontWeight(.semibold)
+                            .padding(.top, 10)
 
                         if let breakdown = response.aqiBreakdown,
                            !breakdown.isEmpty {
@@ -305,30 +376,23 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
                                         .padding()
                                     }
                                     .aspectRatio(16/6.5, contentMode: .fit)
+                                    .onTapGesture {
+                                        // Empty tap handler to make the card react to taps visually (SwiftUI default highlight behavior)
+                                    }
                                 }
                             }
-                        }
-
-                        if let trends = response.trends {
-
-                            Text("Trends")
-                                .font(.system(.headline, design: .rounded))
-                                .fontWeight(.semibold)
-
-                            if let h = trends.change1h {
-                                trendRow(label: "Last 1 hour", value: h)
-                            }
-
-                            if let h = trends.change24h {
-                                trendRow(label: "Last 24 hours", value: h)
-                            }
+                            .animation(animationsEnabled ? .easeInOut : .none, value: breakdown)
                         }
                     }
                 }
                 .padding()
             }
             .refreshable {
-                await viewModel.refresh()
+                if animationsEnabled {
+                    await viewModel.refresh()
+                } else {
+                    await viewModel.refresh()
+                }
             }
         }
         .navigationTitle("Breathe")
@@ -336,23 +400,20 @@ let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
     }
 
     @ViewBuilder
-    private func trendRow(label: String, value: Int) -> some View {
-        HStack {
-
-            Text(label)
+    private func trendItem(label: String, value: Int) -> some View {
+        HStack(spacing: 6) {
+            Text("\(label) Trend:")
                 .font(.system(.subheadline, design: .rounded))
-
-            Spacer()
-
-            HStack(spacing: 3) {
-                Image(systemName: value >= 0 ? "arrow.up" : "arrow.down")
-
+                .foregroundStyle(.secondary)
+                
+            HStack(spacing: 2) {
+                Image(systemName: value == 0 ? "minus" : (value > 0 ? "arrow.up.right" : "arrow.down.right"))
                 Text("\(abs(value))")
                     .monospacedDigit()
             }
             .font(.system(.subheadline, design: .rounded))
-            .fontWeight(.semibold)
-            .foregroundStyle(value <= 0 ? .green : .red)
+            .fontWeight(.bold)
+            .foregroundStyle(value == 0 ? Color.secondary : (value < 0 ? Color.green : Color.red))
         }
     }
 

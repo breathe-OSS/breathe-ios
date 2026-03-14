@@ -89,7 +89,7 @@ struct HomeView: View {
                                             }
                                     }
                                 }
-                                .padding(.horizontal, 4)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 4)
                             }
                         }
@@ -116,22 +116,7 @@ struct HomeView: View {
                                 .background(Capsule().fill(.ultraThinMaterial))
                                 .foregroundStyle(.secondary)
                                 
-                            if isAirGradient {
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
-                                    Text("Live Ground Sensors")
-                                        .font(.system(.caption, design: .rounded))
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else if isOpenMeteo {
-                                Text("Satellite & Model Data")
-                                    .font(.system(.caption, design: .rounded))
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.secondary)
-                            }
+                            
                             
                             Spacer()
 
@@ -154,7 +139,22 @@ struct HomeView: View {
                             .font(.system(.largeTitle, design: .rounded))
                             .fontWeight(.bold)
                             .fontWidth(.expanded)
-
+                        if isAirGradient {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 6, height: 6)
+                                    Text("Live Ground Sensors")
+                                        .font(.system(.caption, design: .rounded))
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else if isOpenMeteo {
+                                Text("Satellite & Model Data")
+                                    .font(.system(.caption, design: .rounded))
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                            }
                         VStack(alignment: .leading, spacing: 14) {
                         
                             HStack {
@@ -164,10 +164,6 @@ struct HomeView: View {
                                     .foregroundStyle(aqiColor(aqi))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(
-                                        Capsule()
-                                            .fill(.background.opacity(0.8))
-                                    )
                                 Spacer()
                                 
                                 Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
@@ -283,13 +279,6 @@ struct HomeView: View {
                                         .frame(width: 16, height: 16)
                                         .shadow(radius: 2)
                                         .offset(x: xOffset)
-                                        .animation(animationsEnabled ? .spring(response: 0.6, dampingFraction: 0.7) : .none, value: xOffset)
-                                        
-                                    Text(aqiLabel(aqi))
-                                        .font(.system(.caption2, design: .rounded))
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(Color.primary)
-                                        .offset(x: xOffset - 20, y: -20)
                                         .animation(animationsEnabled ? .spring(response: 0.6, dampingFraction: 0.7) : .none, value: xOffset)
                                 }
                             }

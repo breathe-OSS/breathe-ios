@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
-    @AppStorage("isDarkTheme") private var isDarkTheme = false
+    
+    @AppStorage("themeMode") private var themeMode = "auto"
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     
     @State private var showDataSourceDialog = false
@@ -10,43 +11,46 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                
                 Section(header: Text("Appearance")) {
-                    Toggle(isOn: $isDarkTheme) {
-                        VStack(alignment: .leading) {
-                            Text("Dark Theme")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                            Text("Toggle app appearance")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        
+                        Text("Theme")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Text("Choose app appearance")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Picker("Theme", selection: $themeMode) {
+                            Text("Auto").tag("auto")
+                            Text("Light").tag("light")
+                            Text("Dark").tag("dark")
                         }
+                        .pickerStyle(.segmented)
                     }
                 }
                 
                 Section(header: Text("General")) {
-                    // Toggle for Indian NAQI. In the ViewModel, false means Indian NAQI, true means US EPA.
-                    // We bind a custom binding so the toggle shows "on" when it's NAQI.
-                    Toggle(isOn: Binding(
-                        get: { !viewModel.isUsAqi },
-                        set: { viewModel.isUsAqi = !$0 }
-                    )) {
-                        VStack(alignment: .leading) {
-                            Text("Indian NAQI")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                            Text("Switch to Indian National AQI")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
                     
-                    VStack(alignment: .leading) {
-                        Text("Data Standards")
-                            .font(.headline)
-                        Text(!viewModel.isUsAqi ? "Indian National Air Quality Index (NAQI)" : "US EPA (2024 Standard)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                    VStack(alignment: .leading, spacing: 8) {
+
+    Text("AQI Standard")
+        .font(.headline)
+        .fontWeight(.semibold)
+
+    Text("Choose which air quality index standard to display")
+        .font(.subheadline)
+        .foregroundColor(.secondary)
+
+    Picker("AQI Standard", selection: $viewModel.isUsAqi) {
+        Text("Indian NAQI").tag(false)
+        Text("US AQI").tag(true)
+    }
+    .pickerStyle(.segmented)
+}
                     
                     Button(action: { showDataSourceDialog = true }) {
                         VStack(alignment: .leading) {

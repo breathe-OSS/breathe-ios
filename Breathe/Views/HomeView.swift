@@ -15,7 +15,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 22) {
 
                     Text("Location")
-                        .font(.system(.headline, design: .rounded))
+                        .font(.system(.title2, design: .rounded))
                         .fontWeight(.semibold)
                         .fontWidth(.condensed)
                         .foregroundStyle(.secondary)
@@ -42,14 +42,49 @@ struct HomeView: View {
                         }
                         .padding(.vertical, 40)
                     } else {
-                        Picker("Zone", selection: $viewModel.selectedZone) {
-                            ForEach(viewModel.pinnedZones) { zone in
-                                Text(zone.name)
-                                    .font(.system(.body, design: .rounded))
-                                    .tag(Optional(zone))
+    ScrollViewReader { proxy in
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+
+                ForEach(viewModel.pinnedZones) { zone in
+
+                    let isSelected = zone.id == viewModel.selectedZone?.id
+
+                    Text(zone.name)
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+
+                        .background(
+                            Capsule()
+                                .fill(
+                                    isSelected
+                                    ? Color.accentColor
+                                    : Color(.tertiaryLabel).opacity(0.35)
+                                )
+                        )
+
+                        .foregroundStyle(isSelected ? .white : .primary)
+
+                        .scaleEffect(isSelected ? 1.05 : 1)
+
+                        .animation(.easeInOut(duration: 0.15), value: viewModel.selectedZone)
+
+                        .id(zone.id)
+
+                        .onTapGesture {
+                            viewModel.selectedZone = zone
+                            withAnimation {
+                                proxy.scrollTo(zone.id, anchor: .center)
                             }
                         }
-                    }
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+}
 
                     if let aqi = viewModel.displayAqi,
                        let response = viewModel.currentAqi {

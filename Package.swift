@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Breathe",
     platforms: [
-        .iOS(.v26),
-        .macOS(.v26),
+        .iOS(.v16),
+        .macOS(.v14),
     ],
     products: [
         .library(

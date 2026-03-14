@@ -3,7 +3,10 @@ import SwiftUI
 struct HomeView: View {
 
     @StateObject private var viewModel = BreatheViewModel()
-
+    let columns = [
+    GridItem(.flexible()),
+    GridItem(.flexible())
+    ]
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -137,10 +140,11 @@ HStack(spacing: 12){
         }
     }
                         // Pollutant breakdown
+                    LazyVGrid(columns: columns, spacing: 12) { 
                         if let breakdown = response.aqiBreakdown,
                            !breakdown.isEmpty {
 
-                            Text("Breakdown")
+                            Text("Concentrations")
                                 .font(.headline)
 
                             ForEach(
@@ -160,7 +164,7 @@ HStack(spacing: 12){
                                 }
                             }
                         }
-
+                    }
                         // Trends
                         if let trends = response.trends {
 

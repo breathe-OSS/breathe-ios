@@ -3,3 +3,4 @@ xtool/
 Breathe/.build/
 Breathe/xtool/
 .DS_Store
+.vscode/

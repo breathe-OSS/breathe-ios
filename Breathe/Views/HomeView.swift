@@ -25,7 +25,6 @@ struct HomeView: View {
                             ProgressView()
                             Text("Loading zones…")
                                 .font(.system(.subheadline, design: .rounded))
-                                .fontWidth(.condensed)
                                 .foregroundStyle(.secondary)
                         }
                     } else {
@@ -33,7 +32,6 @@ struct HomeView: View {
                             ForEach(viewModel.zones) { zone in
                                 Text(zone.name)
                                     .font(.system(.body, design: .rounded))
-                                    .fontWidth(.standard)
                                     .tag(Optional(zone))
                             }
                         }
@@ -47,13 +45,9 @@ struct HomeView: View {
                         Label("Now Viewing", systemImage:"location.fill")
                             .font(.system(.caption, design: .rounded))
                             .fontWeight(.medium)
-                            .fontWidth(.compressed)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                            )
+                            .background(Capsule().fill(.ultraThinMaterial))
                             .foregroundStyle(.secondary)
 
                         Text(viewModel.selectedZone?.name ?? "Air Quality")
@@ -67,7 +61,6 @@ struct HomeView: View {
 
                                 Text("\(aqi)")
                                     .font(.system(size: 72, weight: .heavy, design: .rounded))
-                                    .fontWidth(.expanded)
                                     .monospacedDigit()
                                     .foregroundStyle(aqiColor(aqi))
 
@@ -78,13 +71,11 @@ struct HomeView: View {
                                     Text(aqiLabel(aqi))
                                         .font(.system(.headline, design: .rounded))
                                         .fontWeight(.semibold)
-                                        .fontWidth(.condensed)
                                         .foregroundStyle(aqiColor(aqi))
 
                                     if let pollutant = viewModel.displayPollutant {
                                         Label(pollutant, systemImage: "aqi.medium")
                                             .font(.system(.subheadline, design: .rounded))
-                                            .fontWidth(.condensed)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -93,7 +84,6 @@ struct HomeView: View {
                             Text(viewModel.isUsAqi ? "US AQI" : "Indian NAQI")
                                 .font(.system(.caption, design: .rounded))
                                 .fontWeight(.semibold)
-                                .fontWidth(.compressed)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
                                 .background(.ultraThinMaterial, in: Capsule())
@@ -101,14 +91,12 @@ struct HomeView: View {
                             if let warning = response.warning {
                                 Label(warning, systemImage: "exclamationmark.triangle.fill")
                                     .font(.system(.caption, design: .rounded))
-                                    .fontWidth(.condensed)
                                     .foregroundStyle(.orange)
                             }
 
                             if let ts = response.lastUpdateStr {
                                 Text("Updated \(ts)")
                                     .font(.system(.caption2, design: .rounded))
-                                    .fontWidth(.standard)
                                     .foregroundStyle(.tertiary)
                             }
                         }
@@ -162,11 +150,9 @@ struct HomeView: View {
                                 Text("≈ \(Int(Double(aqi) / 22)) cigarettes")
                                     .font(.system(.headline, design: .rounded))
                                     .fontWeight(.bold)
-                                    .fontWidth(.condensed)
 
                                 Text("Equivalent PM2.5 inhalation today")
                                     .font(.system(.caption, design: .rounded))
-                                    .fontWidth(.standard)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -174,7 +160,6 @@ struct HomeView: View {
                         Text("Concentrations")
                             .font(.system(.headline, design: .rounded))
                             .fontWeight(.semibold)
-                            .fontWidth(.condensed)
 
                         if let breakdown = response.aqiBreakdown,
                            !breakdown.isEmpty {
@@ -192,12 +177,11 @@ struct HomeView: View {
 
                                         HStack {
 
-                                            Text(key.uppercased())
-                                                .font(.system(.caption, design: .monospaced))
-                                                .fontWeight(.bold)
-                                                .fontWidth(.compressed)
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 4)
+                                            Text(formatPollutant(key))
+                                                .font(.system(.body, design: .rounded))
+                                                .fontWeight(.semibold)
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 8)
                                                 .background(.ultraThinMaterial, in: Capsule())
 
                                             Spacer()
@@ -207,19 +191,17 @@ struct HomeView: View {
                                                 Text("\(value)")
                                                     .font(.system(.title3, design: .rounded))
                                                     .fontWeight(.bold)
-                                                    .fontWidth(.expanded)
                                                     .monospacedDigit()
                                                     .foregroundStyle(aqiColor(value))
 
                                                 Text("µg/m³")
                                                     .font(.system(.caption2, design: .rounded))
-                                                    .fontWidth(.standard)
                                                     .foregroundStyle(.secondary)
                                             }
                                         }
                                         .padding()
                                     }
-                                    .aspectRatio(16/6, contentMode: .fit)
+                                    .aspectRatio(16/7, contentMode: .fit)
                                 }
                             }
                         }
@@ -229,7 +211,6 @@ struct HomeView: View {
                             Text("Trends")
                                 .font(.system(.headline, design: .rounded))
                                 .fontWeight(.semibold)
-                                .fontWidth(.condensed)
 
                             if let h = trends.change1h {
                                 trendRow(label: "Last 1 hour", value: h)
@@ -243,42 +224,12 @@ struct HomeView: View {
                 }
                 .padding()
             }
+            .refreshable {
+                await viewModel.refresh()
+            }
         }
         .navigationTitle("Breathe")
         .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    viewModel.isUsAqi.toggle()
-                } label: {
-                    Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                        .font(.system(.caption, design: .rounded))
-                        .fontWeight(.semibold)
-                        .fontWidth(.compressed)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-
-            ToolbarItem(placement: .topBarLeading) {
-                if viewModel.isLoading && viewModel.currentAqi != nil {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                }
-            }
-        }
-        .refreshable {
-            await viewModel.refresh()
-        }
-        .alert("Error", isPresented: .constant(viewModel.error != nil)) {
-            Button("Retry") { Task { await viewModel.refresh() } }
-            Button("Dismiss", role: .cancel) { viewModel.dismissError() }
-        } message: {
-            Text(viewModel.error ?? "")
-        }
     }
 
     @ViewBuilder
@@ -286,7 +237,6 @@ struct HomeView: View {
         HStack {
             Text(label)
                 .font(.system(.subheadline, design: .rounded))
-                .fontWidth(.condensed)
 
             Spacer()
 
@@ -297,7 +247,6 @@ struct HomeView: View {
             }
             .font(.system(.subheadline, design: .rounded))
             .fontWeight(.semibold)
-            .fontWidth(.expanded)
             .foregroundStyle(value <= 0 ? .green : .red)
         }
     }
@@ -322,5 +271,25 @@ struct HomeView: View {
         case ..<301: return "Very Unhealthy"
         default:     return "Hazardous"
         }
+    }
+
+    private func formatPollutant(_ raw: String) -> AttributedString {
+
+        let cleaned = raw.replacingOccurrences(of: "_", with: ".")
+        var result = AttributedString()
+
+        for char in cleaned.uppercased() {
+
+            if char.isNumber {
+                var sub = AttributedString(String(char))
+                sub.baselineOffset = -4
+                sub.font = .system(size: 11)
+                result.append(sub)
+            } else {
+                result.append(AttributedString(String(char)))
+            }
+        }
+
+        return result
     }
 }

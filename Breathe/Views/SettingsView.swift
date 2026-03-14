@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var viewModel = BreatheViewModel()
     @AppStorage("isDarkTheme") private var isDarkTheme = false
-    @AppStorage("isAmoled") private var isAmoled = false
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     
     @State private var showDataSourceDialog = false
@@ -20,19 +19,6 @@ struct SettingsView: View {
                             Text("Toggle app appearance")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    if isDarkTheme {
-                        Toggle(isOn: $isAmoled) {
-                            VStack(alignment: .leading) {
-                                Text("AMOLED Mode")
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                Text("Pure black background")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
                         }
                     }
                 }

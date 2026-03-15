@@ -96,17 +96,19 @@ struct GraphView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .hour, count: 6)) { value in
+                    AxisMarks(values: .stride(by: .hour, count: 4)) { value in
                         AxisGridLine()
                         AxisTick()
                         if value.as(Date.self) != nil {
-                            AxisValueLabel(format: .dateTime.hour(), collisionResolution: .disabled)
+                            AxisValueLabel(format: .dateTime.hour(), collisionResolution: .automatic)
+                                .font(.system(size: 10))
                         }
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading)
                 }
+                .chartXScale(range: .plotDimension(padding: 15))
                 .frame(height: 160)
                 .padding(.top, selectedPoint != nil ? 30 : 10)
                 .padding(.bottom, 10)

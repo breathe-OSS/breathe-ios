@@ -100,6 +100,18 @@ struct HomeView: View {
                                 )
                                 .padding(.bottom, 10)
                             }
+                                .mask(
+                                    LinearGradient(
+                                        stops: [
+                                            .init(color: .clear, location: 0),
+                                            .init(color: .black, location: 0.05), // Fade in at 5%
+                                            .init(color: .black, location: 0.95), // Fade out at 95%
+                                            .init(color: .clear, location: 1)
+                                        ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                    )
+                                )
                         }
                     }
                     
@@ -125,11 +137,15 @@ struct HomeView: View {
                             
                             // Exclusive Logic: Prioritize AirGradient branding
                             if isAirGradient {
-                                ProviderLogo(name: "air_gradient_logo", height: 20)
+                                Link(destination: URL(string: "https://www.airgradient.com/")!) {
+                                    ProviderLogo(name: "air_gradient_logo", height: 20)
+                                }
                             } else if isOpenMeteo {
                                 // Uses "light" version for dark mode if available
                                 let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
-                                ProviderLogo(name: assetName, height: 20)
+                                Link(destination: URL(string: "https://www.open-meteo.com/")!) {
+                                    ProviderLogo(name: assetName, height: 20)
+                                }
                             }
                         }
                         
@@ -184,7 +200,7 @@ struct HomeView: View {
                             
                             HStack(alignment: .lastTextBaseline, spacing: 14) {
                                 Text("\(aqi)")
-                                    .font(.system(size: 72, weight: .heavy, design: .rounded))
+                                    .font(.system(size: 72, weight: .heavy, design: .monospaced))
                                     .monospacedDigit()
                                     .foregroundStyle(aqiColor(aqi))
                                 
@@ -317,10 +333,13 @@ struct HomeView: View {
                                                     .fontWeight(.bold)
                                                     .monospacedDigit()
                                                     .foregroundStyle(aqiColor(value))
-                                                
-                                                Text("µg/m³")
-                                                    .font(.system(.caption2, design: .rounded))
-                                                    .foregroundStyle(.secondary)
+    
+                                            // Dynamic unit selection
+                                            let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
+
+                                            Text(unit)
+                                                .font(.system(.caption2, design: .rounded))
+                                                .foregroundStyle(.secondary)
                                             }
                                         }
                                         .padding()
@@ -348,20 +367,35 @@ struct HomeView: View {
     @ViewBuilder
     private func setGaugeSpectrum(position: Double) -> some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4)
+            if viewModel.isUsAqi {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(
+                        LinearGradient(stops: [
+                            .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),      // Good
+                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),   // Moderate
+                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),   // Sensitive
+                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),     // Unhealthy
+                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),  // Very Unhealthy
+                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)     // Hazardous
+                        ], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .frame(height: 8)
+                    .padding(.horizontal, 5)
+            } else {
+                RoundedRectangle(cornerRadius: 4)
                 .fill(
                     LinearGradient(stops: [
-                        .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),
-                        .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),
-                        .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),
-                        .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),
-                        .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),
-                        .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)
+                        .init(color: Color(red: 0/255, green: 176/255, blue: 80/255), location: 0.0),      // Good
+                        .init(color: Color(red: 146/255, green: 208/255, blue: 80/255), location: 0.10),   // Satisfactory
+                        .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.20),   // Moderate
+                        .init(color: Color(red: 244/255, green: 145/255, blue: 28/255), location: 0.40),   // Poor
+                        .init(color: Color(red: 233/255, green: 63/255, blue: 51/255), location: 0.60),    // Very Poor
+                        .init(color: Color(red: 175/255, green: 45/255, blue: 36/255), location: 0.80)     // Severe
                     ], startPoint: .leading, endPoint: .trailing)
                 )
-                .frame(height: 8)
-                .padding(.horizontal, 5)
-            
+                    .frame(height: 8)
+                    .padding(.horizontal, 5)
+            }
             GeometryReader { geo in
                 let xOffset = geo.size.width * position - 8
                 ZStack(alignment: .top) {
@@ -397,15 +431,26 @@ struct HomeView: View {
             .foregroundStyle(value == 0 ? Color.secondary : (value < 0 ? Color.green : Color.red))
         }
     }
-    
+
     private func aqiColor(_ value: Int) -> Color {
-        switch value {
-        case ..<51:  return .green
-        case ..<101: return Color(red: 0.8, green: 0.7, blue: 0)
-        case ..<151: return .orange
-        case ..<201: return .red
-        case ..<301: return .purple
-        default:     return Color(red: 0.5, green: 0, blue: 0.1)
+        if viewModel.isUsAqi {
+            switch value {
+            case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
+            case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
+            case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
+            case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
+            case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
+            default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
+            }
+        } else {
+            switch value {
+            case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
+            case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
+            case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
+            case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
+            case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
+            default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
+            }
         }
     }
     
@@ -421,18 +466,35 @@ struct HomeView: View {
     }
     
     private func formatPollutant(_ raw: String) -> AttributedString {
-        let cleaned = raw.replacingOccurrences(of: "_", with: ".")
-        var result = AttributedString()
-        for char in cleaned.uppercased() {
-            if char.isNumber {
-                var sub = AttributedString(String(char))
-                sub.baselineOffset = -4
-                sub.font = .system(size: 11)
-                result.append(sub)
-            } else {
-                result.append(AttributedString(String(char)))
-            }
+    let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
+    var result = AttributedString()
+    
+    if input == "pm2.5" || input == "pm25" {
+        result.append(AttributedString("PM"))
+        var sub = AttributedString("2.5")
+        sub.baselineOffset = -2
+        sub.font = .system(size: 12, weight: .bold)
+        result.append(sub)
+        return result
+    } else if input == "pm10" {
+        result.append(AttributedString("PM"))
+        var sub = AttributedString("10")
+        sub.baselineOffset = -2
+        sub.font = .system(size: 12, weight: .bold)
+        result.append(sub)
+        return result
+    }
+    
+    for char in raw.uppercased() {
+        if char.isNumber || char == "." {
+            var sub = AttributedString(String(char))
+            sub.baselineOffset = -4
+            sub.font = .system(size: 11)
+            result.append(sub)
+        } else {
+            result.append(AttributedString(String(char)))
         }
+    }
         return result
     }
 }

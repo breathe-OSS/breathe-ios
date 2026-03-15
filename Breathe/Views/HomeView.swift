@@ -218,11 +218,7 @@ struct HomeView: View {
                                             .foregroundStyle(.primary)
                                     }
                                     
-                                    if let ts = viewModel.formattedLastUpdated {
-                                        Text(ts)
-                                            .font(.system(.caption, design: .rounded))
-                                            .foregroundStyle(.secondary)
-                                    }
+
                                 }
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             }

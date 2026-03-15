@@ -4,6 +4,7 @@ struct HomeView: View {
     
     @EnvironmentObject private var viewModel: BreatheViewModel
     @AppStorage("animationsEnabled") private var animationsEnabled = true
+    @Environment(\.colorScheme) var colorScheme
     
     let columns = [
         GridItem(.flexible()),
@@ -52,7 +53,7 @@ struct HomeView: View {
                     // MARK: - Pinned Locations Horizontal Selector
                     else {
                         Text("Pinned Locations")
-                            .font(.system(.subheadline, design: .rounded))
+                            .font(.system(.footnote, design: .rounded))
                             .foregroundStyle(.secondary)
                         
                         ScrollViewReader { proxy in
@@ -122,18 +123,13 @@ struct HomeView: View {
                             
                             Spacer()
                             
+                            // Exclusive Logic: Prioritize AirGradient branding
                             if isAirGradient {
-                                Image("airgradient_logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(height: 20)
-                            }
-                            
-                            if isOpenMeteo {
-                                Image("openmeteo_logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(height: 20)
+                                ProviderLogo(name: "air_gradient_logo", height: 20)
+                            } else if isOpenMeteo {
+                                // Uses "light" version for dark mode if available
+                                let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
+                                ProviderLogo(name: assetName, height: 20)
                             }
                         }
                         
@@ -298,7 +294,7 @@ struct HomeView: View {
                             .padding(.top, 10)
                         
                         if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
-                            LazyVGrid(columns: columns, spacing: 12) {
+                            LazyVGrid(columns: columns, spacing: 2) {
                                 ForEach(breakdown.sorted { $0.value > $1.value }, id: \.key) { key, value in
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 18)
@@ -438,5 +434,21 @@ struct HomeView: View {
             }
         }
         return result
+    }
+}
+
+// MARK: - Helper Views
+struct ProviderLogo: View {
+    let name: String
+    let height: CGFloat
+    
+    var body: some View {
+        if let path = Bundle.main.path(forResource: name, ofType: "png"),
+           let uiImage = UIImage(contentsOfFile: path) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFit()
+                .frame(height: height)
+        }
     }
 }

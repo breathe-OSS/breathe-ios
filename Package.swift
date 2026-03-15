@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Breathe",
     platforms: [
-        .iOS(.v16),
-        .macOS(.v14),
+        .iOS(.v26),
+        .macOS(.v26),
     ],
     products: [
         .library(
@@ -13,10 +13,12 @@ let package = Package(
             targets: ["Breathe"]
         ),
     ],
-    targets: [
-        .target(
-            name: "Breathe",
-            path: "Breathe"
-        ),
-    ]
+    // Package.swift
+targets: [
+    .target(
+        name: "Breathe",
+        path: "Breathe",
+        exclude: ["Resources", "AppIcon.png", "Assets.xcassets"] // Exclude them from SPM handling
+    ),
+]
 )

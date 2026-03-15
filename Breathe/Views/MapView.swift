@@ -12,7 +12,7 @@ struct MapView: View {
     
     var body: some View {
         NavigationStack {
-            Map(coordinateRegion: $region, interactionModes: [], annotationItems: viewModel.zones) { zone in
+            Map(coordinateRegion: $region, annotationItems: viewModel.zones) { zone in
                 MapAnnotation(coordinate: CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0)) {
                     let aqiData = viewModel.allAqiData[zone.id]
                     let isSelected = viewModel.selectedMapZone?.id == zone.id
@@ -36,6 +36,8 @@ struct MapView: View {
                     await viewModel.fetchAllAqiData()
                 }
             }
+            .onChange(of: region.center.latitude) { _ in enforceBounds() }
+            .onChange(of: region.center.longitude) { _ in enforceBounds() }
             .overlay(alignment: .bottom) {
                 if viewModel.selectedMapZone != nil {
                     SelectedZoneCard()
@@ -47,6 +49,27 @@ struct MapView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+        }
+    }
+    
+    private func enforceBounds() {
+        // Bounds roughly for North India / Himalayas
+        let minLat: CLLocationDegrees = 26.0
+        let maxLat: CLLocationDegrees = 38.0
+        let minLon: CLLocationDegrees = 71.0
+        let maxLon: CLLocationDegrees = 81.0
+        
+        var clampedLat = region.center.latitude
+        var clampedLon = region.center.longitude
+        var wasClamped = false
+        
+        if clampedLat < minLat { clampedLat = minLat; wasClamped = true }
+        if clampedLat > maxLat { clampedLat = maxLat; wasClamped = true }
+        if clampedLon < minLon { clampedLon = minLon; wasClamped = true }
+        if clampedLon > maxLon { clampedLon = maxLon; wasClamped = true }
+        
+        if wasClamped {
+            region.center = CLLocationCoordinate2D(latitude: clampedLat, longitude: clampedLon)
         }
     }
 }

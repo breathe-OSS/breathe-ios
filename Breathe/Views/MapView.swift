@@ -238,6 +238,7 @@ struct AQIMarkerView: View {
             Circle()
                 .fill(color)
                 .frame(width: 32, height: 32)
+                .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
             
             if let aqiVal = aqiVal {
                 Text("\(aqiVal)")
@@ -252,6 +253,7 @@ struct AQIMarkerView: View {
                 Circle()
                     .fill(Color.green)
                     .frame(width: 12, height: 12)
+                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
                     .offset(x: 12, y: -12)
             }
         }

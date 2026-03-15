@@ -309,9 +309,9 @@ struct HomeView: View {
                             .fontWeight(.semibold)
                             .padding(.top, 10)
                         
-                        if let breakdown = response.aqiBreakdown, !breakdown.isEmpty {
+                        if let concentrations = response.concentrations, !concentrations.isEmpty {
                             LazyVGrid(columns: columns, spacing: 2) {
-                                ForEach(breakdown.sorted { $0.value > $1.value }, id: \.key) { key, value in
+                                ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 18)
                                             .fill(Color(.systemFill).opacity(0.4))
@@ -328,11 +328,11 @@ struct HomeView: View {
                                             Spacer()
                                             
                                             VStack(alignment: .trailing, spacing: 2) {
-                                                Text("\(value)")
+                                                Text(String(format: "%.2f", value))
                                                     .font(.system(.title2, design: .rounded))
                                                     .fontWeight(.bold)
                                                     .monospacedDigit()
-                                                    .foregroundStyle(aqiColor(value))
+                                                    .foregroundStyle(.primary)
     
                                             // Dynamic unit selection
                                             let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
@@ -349,7 +349,7 @@ struct HomeView: View {
                                     .padding(.bottom, 6)
                                 }
                             }
-                            .animation(animationsEnabled ? .easeInOut : .none, value: breakdown)
+                            .animation(animationsEnabled ? .easeInOut : .none, value: concentrations.count)
                         }
                     }
                 }

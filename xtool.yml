@@ -1,6 +1,6 @@
 version: 1
 bundleID: com.yourname.Breathe
-iconPath: Breathe/AppIcon.png # Fixed path to your icon
+iconPath: Breathe/AppIcon.png
 resources:
   - Breathe/Resources/air_gradient_logo.png
   - Breathe/Resources/open_meteo_logo.png

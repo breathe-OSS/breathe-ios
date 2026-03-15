@@ -27,6 +27,7 @@ final class BreatheViewModel: ObservableObject {
     }
     
     @Published var currentAqi: AqiResponse?
+    @Published var allAqiData: [String: AqiResponse] = [:]
     @Published var isLoading = false
     @Published var error: String?
 
@@ -102,10 +103,36 @@ final class BreatheViewModel: ObservableObject {
         isLoading = true
         do {
             currentAqi = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
+            if let aqi = currentAqi {
+                allAqiData[zone.id] = aqi
+            }
+            // Fetch the rest silently for the map
+            Task { await fetchAllAqiData() }
         } catch {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+    
+    func fetchAllAqiData() async {
+        await withTaskGroup(of: (String, AqiResponse?).self) { group in
+            for zone in zones where allAqiData[zone.id] == nil {
+                group.addTask {
+                    do {
+                        let response = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
+                        return (zone.id, response)
+                    } catch {
+                        return (zone.id, nil)
+                    }
+                }
+            }
+            
+            for await (zoneId, response) in group {
+                if let response = response {
+                    allAqiData[zoneId] = response
+                }
+            }
+        }
     }
 
     func refresh() async {

@@ -1,7 +1,9 @@
 version: 1
-bundleID: com.yourname.Breathe
+bundleID: com.sidharthify.Breathe
 iconPath: Breathe/AppIcon.png
 resources:
   - Breathe/Resources/air_gradient_logo.png
   - Breathe/Resources/open_meteo_logo.png
   - Breathe/Resources/open_meteo_logo_light.png
+  - Breathe/Resources/jammu-and-kashmir.geojson
+  - Breathe/Resources/ladakh.geojson

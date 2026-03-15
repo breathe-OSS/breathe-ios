@@ -99,7 +99,8 @@ struct GraphView: View {
                     AxisMarks(values: .stride(by: .hour, count: 4)) { value in
                         AxisGridLine()
                         AxisTick()
-                        if value.as(Date.self) != nil {
+                        // Ensure it fits and we show smaller text
+                        if let _ = value.as(Date.self) {
                             AxisValueLabel(format: .dateTime.hour(), collisionResolution: .automatic)
                                 .font(.system(size: 10))
                         }

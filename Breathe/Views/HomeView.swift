@@ -298,6 +298,12 @@ struct HomeView: View {
                             }
                         }
                         
+                        // MARK: - 24-Hour Graph
+                        if let history = response.history, !history.isEmpty {
+                            GraphView(history: history, isUsAqi: viewModel.isUsAqi)
+                                .padding(.vertical, 10)
+                        }
+                        
                         // MARK: - Individual Pollutant Grid
                         Text("Concentrations")
                             .font(.system(.title, design: .rounded))

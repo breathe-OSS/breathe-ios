@@ -1,5 +1,5 @@
 version: 1
-bundleID: com.sidharthify.Breathe
+bundleID: com.yourname.Breathe
 iconPath: Breathe/AppIcon.png
 resources:
   - Breathe/Resources/air_gradient_logo.png

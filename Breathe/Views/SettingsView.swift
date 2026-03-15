@@ -92,6 +92,7 @@ struct SettingsView: View {
                 
                 Section(header: Text("We, the People of Breathe")) {
                     ContributorLink(name: "Sidharth \"Siddhi\" Sharma", role: "Lead Developer (@sidharthify)", url: "https://github.com/sidharthify")
+                    ContributorLink(name: "Sannidhya Sharma", role: "Developer (@sleeperofsaturn)", url: "https://github.com/sleeperofsaturn")
                     ContributorLink(name: "Aaditya Gupta", role: "Developer (@Flashwreck)", url: "https://github.com/Flashwreck")
                     ContributorLink(name: "Aditya Choudhary", role: "Contributor (@empirea9)", url: "https://github.com/empirea9")
                     ContributorLink(name: "Veer P.S Singh", role: "Contributor (@Lostless1907)", url: "https://github.com/Lostless1907")

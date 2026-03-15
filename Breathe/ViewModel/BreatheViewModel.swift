@@ -58,6 +58,15 @@ final class BreatheViewModel: ObservableObject {
         return latestVal - previousVal
     }
 
+    /// Formats the API's timestamp_unix into a relative time string (e.g., "25 minutes ago")
+    var formattedLastUpdated: String? {
+        guard let ts = currentAqi?.timestampUnix else { return nil }
+        let date = Date(timeIntervalSince1970: ts)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
     init() {
         self.isUsAqi = UserDefaults.standard.bool(forKey: "is_us_aqi")
         

@@ -218,7 +218,7 @@ struct HomeView: View {
                                             .foregroundStyle(.primary)
                                     }
                                     
-                                    if let ts = response.lastUpdateStr {
+                                    if let ts = viewModel.formattedLastUpdated {
                                         Text(ts)
                                             .font(.system(.caption, design: .rounded))
                                             .foregroundStyle(.secondary)
@@ -239,7 +239,7 @@ struct HomeView: View {
                                 
                                 Spacer()
                                 
-                                if let ts = response.lastUpdateStr {
+                                if let ts = viewModel.formattedLastUpdated {
                                     HStack(spacing: 4) {
                                         Image(systemName: "clock")
                                             .font(.system(.caption, design: .rounded))

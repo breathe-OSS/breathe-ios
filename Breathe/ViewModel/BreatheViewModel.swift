@@ -47,6 +47,17 @@ final class BreatheViewModel: ObservableObject {
         return isUsAqi ? (r.usMainPollutant ?? r.mainPollutant) : r.mainPollutant
     }
 
+    /// Computes a 1-hour trend from the last two history entries,
+    /// using the AQI field that matches the selected standard.
+    var display1hTrend: Int? {
+        guard let history = currentAqi?.history, history.count >= 2 else { return nil }
+        let latest  = history[history.count - 1]
+        let previous = history[history.count - 2]
+        let latestVal  = isUsAqi ? (latest.usAqi ?? latest.aqi) : latest.aqi
+        let previousVal = isUsAqi ? (previous.usAqi ?? previous.aqi) : previous.aqi
+        return latestVal - previousVal
+    }
+
     init() {
         self.isUsAqi = UserDefaults.standard.bool(forKey: "is_us_aqi")
         

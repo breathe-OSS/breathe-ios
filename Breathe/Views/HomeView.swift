@@ -227,21 +227,26 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                             
-                            // MARK: - Trend Indicators
-                            if let trends = response.trends {
-                                Divider()
-                                    .background(aqiColor(aqi).opacity(0.3))
-                                    .padding(.vertical, 4)
+                            // MARK: - Trend & Last Updated
+                            Divider()
+                                .background(aqiColor(aqi).opacity(0.3))
+                                .padding(.vertical, 4)
+                            
+                            HStack {
+                                if let h = viewModel.display1hTrend {
+                                    trendItem(label: "1h", value: h)
+                                }
                                 
-                                HStack {
-                                    if let h = trends.change1h {
-                                        trendItem(label: "1h", value: h)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    if let d = trends.change24h {
-                                        trendItem(label: "24h", value: d)
+                                Spacer()
+                                
+                                if let ts = response.lastUpdateStr {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "clock")
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundStyle(.secondary)
+                                        Text(ts)
+                                            .font(.system(.subheadline, design: .rounded))
+                                            .foregroundStyle(.secondary)
                                     }
                                 }
                             }
@@ -256,12 +261,6 @@ struct HomeView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(Color.red.opacity(0.15))
                                     .cornerRadius(12)
-                            }
-                            
-                            if let ts = response.lastUpdateStr {
-                                Text("Updated \(ts)")
-                                    .font(.system(.caption2, design: .rounded))
-                                    .foregroundStyle(.tertiary)
                             }
                         }
                         .padding(22)

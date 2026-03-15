@@ -12,10 +12,10 @@ struct MapView: View {
     
     var body: some View {
         NavigationStack {
-            Map(coordinateRegion: $region, annotationItems: viewModel.zones) { zone in
+            Map(coordinateRegion: $region, interactionModes: [], annotationItems: viewModel.zones) { zone in
                 MapAnnotation(coordinate: CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0)) {
                     let aqiData = viewModel.allAqiData[zone.id]
-                    let isSelected = viewModel.selectedZone?.id == zone.id
+                    let isSelected = viewModel.selectedMapZone?.id == zone.id
                     
                     AQIMarkerView(
                         zone: zone,
@@ -24,10 +24,7 @@ struct MapView: View {
                         isSelected: isSelected
                     )
                     .onTapGesture {
-                        withAnimation(.spring) {
-                            viewModel.selectedZone = zone
-                            region.center = CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0)
-                        }
+                        viewModel.selectedMapZone = zone
                     }
                 }
             }
@@ -40,7 +37,7 @@ struct MapView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if viewModel.selectedZone != nil {
+                if viewModel.selectedMapZone != nil {
                     SelectedZoneCard()
                         .padding()
                         .background(.ultraThinMaterial)
@@ -57,16 +54,34 @@ struct MapView: View {
 // MARK: - Selected Zone Quick Card
 struct SelectedZoneCard: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
+        let provider = viewModel.selectedMapZone?.provider ?? ""
+        let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
+        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
+        
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(viewModel.selectedZone?.name ?? "")
+                Text(viewModel.selectedMapZone?.name ?? "")
                     .font(.headline)
+                
                 Spacer()
+                
+                if isAirGradient {
+                    Link(destination: URL(string: "https://www.airgradient.com/")!) {
+                        ProviderLogo(name: "air_gradient_logo", height: 16)
+                    }
+                } else if isOpenMeteo {
+                    let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
+                    Link(destination: URL(string: "https://www.open-meteo.com/")!) {
+                        ProviderLogo(name: assetName, height: 16)
+                    }
+                }
+                
                 Button(action: {
                     withAnimation {
-                        viewModel.selectedZone = nil
+                        viewModel.selectedMapZone = nil
                     }
                 }) {
                     Image(systemName: "xmark.circle.fill")
@@ -101,6 +116,30 @@ struct SelectedZoneCard: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
             }
+            
+            // MARK: - Concentrations
+            if let concentrations = viewModel.currentAqi?.concentrations, !concentrations.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
+                            HStack(spacing: 4) {
+                                Text(formatPollutant(key))
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                
+                                Text(String(format: "%.1f", value))
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .monospacedDigit()
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(.systemFill).opacity(0.5))
+                            .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
         }
     }
     
@@ -125,6 +164,39 @@ struct SelectedZoneCard: View {
             }
         }
     }
+    
+    private func formatPollutant(_ raw: String) -> AttributedString {
+        let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
+        var result = AttributedString()
+        
+        if input == "pm2.5" || input == "pm25" {
+            result.append(AttributedString("PM"))
+            var sub = AttributedString("2.5")
+            sub.baselineOffset = -2
+            sub.font = .system(size: 9, weight: .bold)
+            result.append(sub)
+            return result
+        } else if input == "pm10" {
+            result.append(AttributedString("PM"))
+            var sub = AttributedString("10")
+            sub.baselineOffset = -2
+            sub.font = .system(size: 9, weight: .bold)
+            result.append(sub)
+            return result
+        }
+        
+        for char in raw.uppercased() {
+            if char.isNumber || char == "." {
+                var sub = AttributedString(String(char))
+                sub.baselineOffset = -3
+                sub.font = .system(size: 8)
+                result.append(sub)
+            } else {
+                result.append(AttributedString(String(char)))
+            }
+        }
+        return result
+    }
 }
 
 // MARK: - Annotation Marker UI
@@ -143,8 +215,6 @@ struct AQIMarkerView: View {
             Circle()
                 .fill(color)
                 .frame(width: 32, height: 32)
-                .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
-                .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
             
             if let aqiVal = aqiVal {
                 Text("\(aqiVal)")
@@ -159,12 +229,9 @@ struct AQIMarkerView: View {
                 Circle()
                     .fill(Color.green)
                     .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
                     .offset(x: 12, y: -12)
             }
         }
-        .scaleEffect(isSelected ? 1.3 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
     }
     
     private func getAqi() -> Int? {

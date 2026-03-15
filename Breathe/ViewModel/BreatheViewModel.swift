@@ -26,6 +26,13 @@ final class BreatheViewModel: ObservableObject {
         }
     }
     
+    @Published var selectedMapZone: Zone? {
+        didSet {
+            guard let zone = selectedMapZone else { return }
+            Task { await fetchAqi(for: zone) }
+        }
+    }
+    
     @Published var currentAqi: AqiResponse?
     @Published var allAqiData: [String: AqiResponse] = [:]
     @Published var isLoading = false

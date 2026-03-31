@@ -12,12 +12,6 @@ struct MapView: View {
         )
     )
 
-    private let cameraBounds = MapCameraBounds(
-        centerCoordinateBounds: MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 32.0, longitude: 76.0),
-            span: MKCoordinateSpan(latitudeDelta: 12.0, longitudeDelta: 12.0)
-        )
-    )
     
     var body: some View {
         NavigationStack {
@@ -39,8 +33,7 @@ struct MapView: View {
                     }
                 }
             }
-            .mapCameraBounds(cameraBounds)
-            .ignoresSafeArea(.container, edges: .top)
+            .ignoresSafeArea()
             .navigationTitle("Map")
             .onAppear {
                 Task {
@@ -61,7 +54,6 @@ struct MapView: View {
         }
     }
     
-    // Bounds enforced by mapCameraBounds
 }
 
 // MARK: - Selected Zone Quick Card

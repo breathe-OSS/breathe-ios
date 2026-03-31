@@ -1,5 +1,6 @@
 version: 1
 bundleID: com.sidharthify.Breathe
+teamID: F76Q3J6F82
 iconPath: Breathe/AppIcon.png
 resources:
   - Breathe/Resources/air_gradient_logo.png

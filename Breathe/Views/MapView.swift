@@ -5,39 +5,48 @@ struct MapView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     
     // Default region covering J&K and Ladakh
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 34.75, longitude: 76.5),
-        span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 9.0)
+    @State private var cameraPosition = MapCameraPosition.region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 34.75, longitude: 76.5),
+            span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 9.0)
+        )
+    )
+
+    private let cameraBounds = MapCameraBounds(
+        centerCoordinateBounds: MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 32.0, longitude: 76.0),
+            span: MKCoordinateSpan(latitudeDelta: 12.0, longitudeDelta: 12.0)
+        )
     )
     
     var body: some View {
         NavigationStack {
-            Map(coordinateRegion: $region, annotationItems: viewModel.zones) { zone in
-                MapAnnotation(coordinate: CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0)) {
-                    let aqiData = viewModel.allAqiData[zone.id]
-                    let isSelected = viewModel.selectedMapZone?.id == zone.id
-                    
-                    AQIMarkerView(
-                        zone: zone,
-                        aqiData: aqiData,
-                        isUsAqi: viewModel.isUsAqi,
-                        isSelected: isSelected
-                    )
-                    .onTapGesture {
-                        viewModel.selectedMapZone = zone
+            Map(position: $cameraPosition, interactionModes: .all) {
+                ForEach(viewModel.zones) { zone in
+                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0), anchor: .center) {
+                        let aqiData = viewModel.allAqiData[zone.id]
+                        let isSelected = viewModel.selectedMapZone?.id == zone.id
+
+                        AQIMarkerView(
+                            zone: zone,
+                            aqiData: aqiData,
+                            isUsAqi: viewModel.isUsAqi,
+                            isSelected: isSelected
+                        )
+                        .onTapGesture {
+                            viewModel.selectedMapZone = zone
+                        }
                     }
                 }
             }
+            .mapCameraBounds(cameraBounds)
             .ignoresSafeArea(.container, edges: .top)
             .navigationTitle("Map")
-            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 Task {
                     await viewModel.fetchAllAqiData()
                 }
             }
-            .onChange(of: region.center.latitude) { _ in enforceBounds() }
-            .onChange(of: region.center.longitude) { _ in enforceBounds() }
             .overlay(alignment: .bottom) {
                 if viewModel.selectedMapZone != nil {
                     SelectedZoneCard()
@@ -52,26 +61,7 @@ struct MapView: View {
         }
     }
     
-    private func enforceBounds() {
-        // Bounds roughly for North India / Himalayas
-        let minLat: CLLocationDegrees = 26.0
-        let maxLat: CLLocationDegrees = 38.0
-        let minLon: CLLocationDegrees = 71.0
-        let maxLon: CLLocationDegrees = 81.0
-        
-        var clampedLat = region.center.latitude
-        var clampedLon = region.center.longitude
-        var wasClamped = false
-        
-        if clampedLat < minLat { clampedLat = minLat; wasClamped = true }
-        if clampedLat > maxLat { clampedLat = maxLat; wasClamped = true }
-        if clampedLon < minLon { clampedLon = minLon; wasClamped = true }
-        if clampedLon > maxLon { clampedLon = maxLon; wasClamped = true }
-        
-        if wasClamped {
-            region.center = CLLocationCoordinate2D(latitude: clampedLat, longitude: clampedLon)
-        }
-    }
+    // Bounds enforced by mapCameraBounds
 }
 
 // MARK: - Selected Zone Quick Card

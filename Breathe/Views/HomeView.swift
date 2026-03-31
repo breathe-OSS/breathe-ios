@@ -150,7 +150,7 @@ struct HomeView: View {
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
 
         HStack(spacing: 8) {
-            Label("Now Viewing", systemImage:"location.fill")
+            Label("Now Viewing", systemImage: "location.fill")
                 .font(.system(.caption, design: .rounded))
                 .fontWeight(.medium)
                 .padding(.horizontal, 10)
@@ -218,162 +218,64 @@ struct HomeView: View {
                             .fill(aqiColor(aqi))
                     )
             }
-                            HStack(alignment: .lastTextBaseline, spacing: 14) {
-                                Text("\(aqi)")
-                                    .font(.system(size: 72, weight: .heavy, design: .monospaced))
-                                    .monospacedDigit()
-                                    .foregroundStyle(aqiColor(aqi))
-                                
-                                Spacer()
-                                
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text("Primary")
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundStyle(.secondary)
-                                    
-                                    if let pollutant = viewModel.displayPollutant {
-                                        Text(formatPollutant(pollutant))
-                                            .font(.system(.title, design: .rounded))
-                                            .fontWeight(.bold)
-                                            .foregroundStyle(.primary)
-                                    }
-                                    
 
-                                }
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                            
-                            // MARK: - Trend & Last Updated
-                            Divider()
-                                .background(aqiColor(aqi).opacity(0.3))
-                                .padding(.vertical, 4)
-                            
-                            HStack {
-                                if let h = viewModel.display1hTrend {
-                                    trendItem(label: "1h", value: h)
-                                }
-                                
-                                Spacer()
-                                
-                                if let ts = viewModel.formattedLastUpdated {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "clock")
-                                            .font(.system(.caption, design: .rounded))
-                                            .foregroundStyle(.secondary)
-                                        Text(ts)
-                                            .font(.system(.subheadline, design: .rounded))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            
-                            // MARK: - Health Warnings
-                            if let warning = response.warning, !warning.isEmpty {
-                                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.system(.footnote, design: .rounded))
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(Color.red)
-                                    .padding()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color.red.opacity(0.15))
-                                    .cornerRadius(12)
-                            }
-                        }
-                        .padding(22)
-                        .background(
-                            RoundedRectangle(cornerRadius: 28)
-                                .fill(aqiColor(aqi).opacity(0.15))
-                        )
-                        .padding(.vertical, 6)
-                        .animation(animationsEnabled ? .snappy : .none, value: aqi)
-                        .padding(.bottom, 6)
-                        
-                        // MARK: - Color Spectrum Gauge
-                        setGaugeSpectrum(position: position)
-                        
-                        // MARK: - Cigarette Equivalence Card
-                        let pm25 = response.concentrations?["pm2.5"]
-                            ?? response.concentrations?["pm2_5"]
-                            ?? 0.0
-                        let cigarettes = calculateCigarettes(pm25: pm25)
-                        
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.red.opacity(0.2))
-                                    .frame(width: 44, height: 44)
-                                
-                                Image(systemName: "lungs.fill")
-                                    .foregroundStyle(.red)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("≈ \(cigarettes, specifier: "%.1f") cigarettes")
-                                    .font(.system(.headline, design: .rounded))
-                                    .fontWeight(.bold)
-                                
-                                Text("Equivalent PM2.5 inhalation today")
-                                    .font(.system(.caption, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        
-                        // MARK: - Individual Pollutant Grid
-                        Text("Concentrations")
+            HStack(alignment: .lastTextBaseline, spacing: 14) {
+                Text("\(aqi)")
+                    .font(.system(size: 72, weight: .heavy, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(aqiColor(aqi))
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Primary")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.secondary)
+
+                    if let pollutant = viewModel.displayPollutant {
+                        Text(formatPollutant(pollutant))
                             .font(.system(.title, design: .rounded))
-                            .fontWeight(.semibold)
-                            .padding(.top, 10)
-                        
-                        if let concentrations = response.concentrations, !concentrations.isEmpty {
-                            LazyVGrid(columns: columns, spacing: 2) {
-                                ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 18)
-                                            .fill(Color(.systemFill).opacity(0.4))
-                                        
-                                        HStack {
-                                            Text(formatPollutant(key))
-                                                .font(.system(.body, design: .rounded))
-                                                .fontWeight(.semibold)
-                                                .foregroundStyle(.primary.opacity(0.6))
-                                                .padding(.horizontal, 14)
-                                                .padding(.vertical, 8)
-                                                .background(.ultraThinMaterial, in: Capsule())
-                                            
-                                            Spacer()
-                                            
-                                            VStack(alignment: .trailing, spacing: 2) {
-                                                Text(String(format: "%.2f", value))
-                                                    .font(.system(.title2, design: .rounded))
-                                                    .fontWeight(.bold)
-                                                    .monospacedDigit()
-                                                    .foregroundStyle(.primary)
-    
-                                            // Dynamic unit selection
-                                            let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
-
-                                            Text(unit)
-                                                .font(.system(.caption2, design: .rounded))
-                                                .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        .padding()
-                                    }
-                                    .aspectRatio(16/6.5, contentMode: .fit)
-                                    .onTapGesture { /* Visual highlight only */ }
-                                    .padding(.bottom, 6)
-                                }
-                            }
-                            .animation(animationsEnabled ? .easeInOut : .none, value: concentrations.count)
-                        }
-                        
-                        // MARK: - 24-Hour Graph
-                        if let history = response.history, !history.isEmpty {
-                            GraphView(history: history, isUsAqi: viewModel.isUsAqi)
-                                .padding(.vertical, 10)
-                        }
+                            .fontWeight(.bold)
+                            .foregroundStyle(.primary)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            Divider()
+                .background(aqiColor(aqi).opacity(0.3))
+                .padding(.vertical, 4)
+
+            HStack {
+                if let h = viewModel.display1hTrend {
+                    trendItem(label: "1h", value: h)
+                }
+
+                Spacer()
+
+                if let ts = viewModel.formattedLastUpdated {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(.secondary)
+                        Text(ts)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if let warning = response.warning, !warning.isEmpty {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(.footnote, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.red)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.red.opacity(0.15))
+                    .cornerRadius(12)
+            }
+        }
         .padding(22)
         .background(
             RoundedRectangle(cornerRadius: 28)
@@ -401,7 +303,7 @@ struct HomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("≈ \(cigarettes, specifier: \"%.1f\") cigarettes")
+                Text(String(format: "Approx. %.1f cigarettes", cigarettes))
                     .font(.system(.headline, design: .rounded))
                     .fontWeight(.bold)
 

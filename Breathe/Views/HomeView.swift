@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 struct HomeView: View {
     
@@ -19,185 +24,200 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    
-                    // MARK: - Loading State
-                    if viewModel.zones.isEmpty && viewModel.isLoading {
-                        HStack {
-                            ProgressView()
-                            Text("Loading zones…")
-                                .font(.system(.subheadline, design: .rounded))
-                                .foregroundStyle(.secondary)
-                        }
-                    } 
-                    
-                    // MARK: - Empty State (No Pinned Locations)
-                    else if viewModel.pinnedZones.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "pin.slash")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.secondary)
-                            
-                            Text("No locations pinned")
-                                .font(.subheadline)
-                            
-                            Text("Go to the Search tab and pin some locations to monitor them here.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                        .padding(.vertical, 40)
-                    } 
-                    
-                    // MARK: - Pinned Locations Horizontal Selector
-                    else {
-                        Text("Pinned Locations")
-                            .font(.system(.footnote, design: .rounded))
-                            .foregroundStyle(.secondary)
-                        
-                        ScrollViewReader { proxy in
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(viewModel.pinnedZones) { zone in
-                                        let isSelected = zone.id == viewModel.selectedZone?.id
-                                        
-                                        Text(zone.name)
-                                            .font(.system(.body, design: .rounded))
-                                            .fontWeight(.semibold)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                Capsule()
-                                                    .fill(
-                                                        isSelected
-                                                        ? Color.accentColor
-                                                        : Color(.tertiaryLabel).opacity(0.35)
-                                                    )
-                                            )
-                                            .foregroundStyle(isSelected ? .white : .primary)
-                                            .scaleEffect(isSelected ? 1.05 : 1)
-                                            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: viewModel.selectedZone)
-                                            .id(zone.id)
-                                            .onTapGesture {
-                                                if animationsEnabled {
-                                                    withAnimation {
-                                                        viewModel.selectedZone = zone
-                                                        proxy.scrollTo(zone.id, anchor: .center)
-                                                    }
-                                                } else {
-                                                    viewModel.selectedZone = zone
-                                                    proxy.scrollTo(zone.id, anchor: .center)
-                                                }
-                                            }
+                content
+            }
+            .navigationTitle("Breathe")
+            .navigationBarTitleDisplayMode(.automatic)
+            .refreshable {
+                await viewModel.refresh()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            loadingOrPinnedSection()
+
+            if let aqi = viewModel.displayAqi,
+               let response = viewModel.currentAqi {
+                aqiSection(aqi: aqi, response: response)
+            }
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private func loadingOrPinnedSection() -> some View {
+        if viewModel.zones.isEmpty && viewModel.isLoading {
+            HStack {
+                ProgressView()
+                Text("Loading zones…")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+        } else if viewModel.pinnedZones.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "pin.slash")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+
+                Text("No locations pinned")
+                    .font(.subheadline)
+
+                Text("Go to the Search tab and pin some locations to monitor them here.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            .padding(.vertical, 40)
+        } else {
+            pinnedLocationsSection()
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedLocationsSection() -> some View {
+        Text("Pinned Locations")
+            .font(.system(.footnote, design: .rounded))
+            .foregroundStyle(.secondary)
+
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(viewModel.pinnedZones) { zone in
+                        let isSelected = zone.id == viewModel.selectedZone?.id
+
+                        Text(zone.name)
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        isSelected
+                                        ? Color.accentColor
+                                        : Color(.tertiaryLabel).opacity(0.35)
+                                    )
+                            )
+                            .foregroundStyle(isSelected ? .white : .primary)
+                            .scaleEffect(isSelected ? 1.05 : 1)
+                            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: viewModel.selectedZone)
+                            .id(zone.id)
+                            .onTapGesture {
+                                if animationsEnabled {
+                                    withAnimation {
+                                        viewModel.selectedZone = zone
+                                        proxy.scrollTo(zone.id, anchor: .center)
                                     }
+                                } else {
+                                    viewModel.selectedZone = zone
+                                    proxy.scrollTo(zone.id, anchor: .center)
                                 }
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 4)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18)
-                                        .stroke(Color.primary.opacity(0.05))
-                                )
-                                .padding(.bottom, 10)
                             }
-                                .mask(
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .clear, location: 0),
-                                            .init(color: .black, location: 0.05), // Fade in at 5%
-                                            .init(color: .black, location: 0.95), // Fade out at 95%
-                                            .init(color: .clear, location: 1)
-                                        ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                    )
-                                )
-                        }
                     }
-                    
-                    if let aqi = viewModel.displayAqi,
-                       let response = viewModel.currentAqi {
-                        
-                        let position = min(max(Double(aqi) / 500.0, 0), 1)
-                        let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
-                        let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
-                        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-                        
-                        // MARK: - Header / Provider Branding
-                        HStack(spacing: 8) {
-                            Label("Now Viewing", systemImage:"location.fill")
-                                .font(.system(.caption, design: .rounded))
-                                .fontWeight(.medium)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(.ultraThinMaterial))
-                                .foregroundStyle(.secondary)
-                            
-                            Spacer()
-                            
-                            // Exclusive Logic: Prioritize AirGradient branding
-                            if isAirGradient {
-                                Link(destination: URL(string: "https://www.airgradient.com/")!) {
-                                    ProviderLogo(name: "air_gradient_logo", height: 20)
-                                }
-                            } else if isOpenMeteo {
-                                // Uses "light" version for dark mode if available
-                                let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
-                                Link(destination: URL(string: "https://www.open-meteo.com/")!) {
-                                    ProviderLogo(name: assetName, height: 20)
-                                }
-                            }
-                        }
-                        
-                        // MARK: - Location Title & Subtitle
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(viewModel.selectedZone?.name ?? "Air Quality")
-                                .font(.system(.largeTitle, design: .rounded))
-                                .fontWeight(.bold)
-                                .fontWidth(.expanded)
-                            
-                            if isAirGradient {
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
-                                    Text("Live Ground Sensors")
-                                        .font(.system(.caption, design: .rounded))
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else if isOpenMeteo {
-                                Text("Satellite & Model Data")
-                                    .font(.system(.caption, design: .rounded))
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        
-                        // MARK: - Main AQI Card
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack {
-                                Text(aqiLabel(aqi))
-                                    .font(.system(.title3, design: .rounded))
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(aqiColor(aqi))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                
-                                Spacer()
-                                
-                                Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                                    .font(.system(.caption, design: .rounded))
-                                    .fontWeight(.semibold)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .foregroundStyle(.background)
-                                    .background(
-                                        Capsule()
-                                            .fill(aqiColor(aqi))
-                                    )
-                            }
-                            
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.primary.opacity(0.05))
+                )
+                .padding(.bottom, 10)
+            }
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.05), // Fade in at 5%
+                        .init(color: .black, location: 0.95), // Fade out at 95%
+                        .init(color: .clear, location: 1)
+                    ],
+                startPoint: .leading,
+                endPoint: .trailing
+                )
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func aqiSection(aqi: Int, response: AqiResponse) -> some View {
+        let position = min(max(Double(aqi) / 500.0, 0), 1)
+        let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
+        let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
+        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
+
+        HStack(spacing: 8) {
+            Label("Now Viewing", systemImage:"location.fill")
+                .font(.system(.caption, design: .rounded))
+                .fontWeight(.medium)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(.ultraThinMaterial))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if isAirGradient {
+                Link(destination: URL(string: "https://www.airgradient.com/")!) {
+                    ProviderLogo(name: "air_gradient_logo", height: 20)
+                }
+            } else if isOpenMeteo {
+                let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
+                Link(destination: URL(string: "https://www.open-meteo.com/")!) {
+                    ProviderLogo(name: assetName, height: 20)
+                }
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 2) {
+            Text(viewModel.selectedZone?.name ?? "Air Quality")
+                .font(.system(.largeTitle, design: .rounded))
+                .fontWeight(.bold)
+                .fontWidth(.expanded)
+
+            if isAirGradient {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                    Text("Live Ground Sensors")
+                        .font(.system(.caption, design: .rounded))
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+            } else if isOpenMeteo {
+                Text("Satellite & Model Data")
+                    .font(.system(.caption, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(aqiLabel(aqi))
+                    .font(.system(.title3, design: .rounded))
+                    .fontWeight(.bold)
+                    .foregroundStyle(aqiColor(aqi))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+
+                Spacer()
+
+                Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
+                    .font(.system(.caption, design: .rounded))
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(.background)
+                    .background(
+                        Capsule()
+                            .fill(aqiColor(aqi))
+                    )
+            }
                             HStack(alignment: .lastTextBaseline, spacing: 14) {
                                 Text("\(aqi)")
                                     .font(.system(size: 72, weight: .heavy, design: .monospaced))
@@ -354,14 +374,99 @@ struct HomeView: View {
                         }
                     }
                 }
-                .padding()
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(aqiColor(aqi).opacity(0.15))
+        )
+        .padding(.vertical, 6)
+        .animation(animationsEnabled ? .snappy : .none, value: aqi)
+        .padding(.bottom, 6)
+
+        setGaugeSpectrum(position: position)
+
+        let pm25 = response.concentrations?["pm2.5"]
+            ?? response.concentrations?["pm2_5"]
+            ?? 0.0
+        let cigarettes = calculateCigarettes(pm25: pm25)
+
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.red.opacity(0.2))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: "lungs.fill")
+                    .foregroundStyle(.red)
             }
-            .navigationTitle("Breathe")
-            .navigationBarTitleDisplayMode(.automatic)
-            .refreshable {
-                await viewModel.refresh()
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("≈ \(cigarettes, specifier: \"%.1f\") cigarettes")
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.bold)
+
+                Text("Equivalent PM2.5 inhalation today")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
         }
+
+        Text("Concentrations")
+            .font(.system(.title, design: .rounded))
+            .fontWeight(.semibold)
+            .padding(.top, 10)
+
+        if let concentrations = response.concentrations, !concentrations.isEmpty {
+            pollutantGrid(concentrations: concentrations)
+        }
+
+        if let history = response.history, !history.isEmpty {
+            GraphView(history: history, isUsAqi: viewModel.isUsAqi)
+                .padding(.vertical, 10)
+        }
+    }
+
+    @ViewBuilder
+    private func pollutantGrid(concentrations: [String: Double]) -> some View {
+        LazyVGrid(columns: columns, spacing: 2) {
+            ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color(.systemFill).opacity(0.4))
+
+                    HStack {
+                        Text(formatPollutant(key))
+                            .font(.system(.body, design: .rounded))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary.opacity(0.6))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial, in: Capsule())
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(String(format: "%.2f", value))
+                                .font(.system(.title2, design: .rounded))
+                                .fontWeight(.bold)
+                                .monospacedDigit()
+                                .foregroundStyle(.primary)
+
+                            let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
+
+                            Text(unit)
+                                .font(.system(.caption2, design: .rounded))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                }
+                .aspectRatio(16/6.5, contentMode: .fit)
+                .onTapGesture { }
+                .padding(.bottom, 6)
+            }
+        }
+        .animation(animationsEnabled ? .easeInOut : .none, value: concentrations.count)
     }
     
     // MARK: - Spectrum Helper
@@ -506,12 +611,22 @@ struct ProviderLogo: View {
     let height: CGFloat
     
     var body: some View {
-        if let path = Bundle.main.path(forResource: name, ofType: "png"),
-           let uiImage = UIImage(contentsOfFile: path) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit()
-                .frame(height: height)
+        if let path = Bundle.main.path(forResource: name, ofType: "png") {
+#if os(iOS)
+            if let uiImage = UIImage(contentsOfFile: path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: height)
+            }
+#elseif os(macOS)
+            if let nsImage = NSImage(contentsOfFile: path) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: height)
+            }
+#endif
         }
     }
 }

@@ -76,7 +76,7 @@ struct GraphView: View {
                             .padding(.vertical, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color(.secondarySystemBackground))
+                                    .fill(chartCardBackground)
                                     .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
                             )
                             .padding(.bottom, 8)
@@ -90,7 +90,7 @@ struct GraphView: View {
                         .foregroundStyle(Color.accentColor)
                         .annotation(position: .overlay) {
                             Circle()
-                                .stroke(Color(.systemBackground), lineWidth: 2)
+                                .stroke(chartDotStrokeBackground, lineWidth: 2)
                                 .frame(width: 10, height: 10)
                         }
                     }
@@ -138,9 +138,29 @@ struct GraphView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+            .fill(chartCardBackground)
         )
     }
+
+        private var chartCardBackground: Color {
+    #if os(iOS)
+        return Color(.secondarySystemBackground)
+    #elseif os(macOS)
+        return Color(nsColor: .windowBackgroundColor)
+    #else
+        return Color.gray.opacity(0.15)
+    #endif
+        }
+
+        private var chartDotStrokeBackground: Color {
+    #if os(iOS)
+        return Color(.systemBackground)
+    #elseif os(macOS)
+        return Color(nsColor: .textBackgroundColor)
+    #else
+        return Color.white
+    #endif
+        }
     
     private func findClosestPoint(to date: Date, in history: [HistoryPoint]) -> HistoryPoint? {
         let targetTimestamp = date.timeIntervalSince1970

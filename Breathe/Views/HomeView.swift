@@ -89,36 +89,14 @@ struct HomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(viewModel.pinnedZones) { zone in
-                        let isSelected = zone.id == viewModel.selectedZone?.id
-
-                        Text(zone.name)
-                            .font(.system(.body, design: .rounded))
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(
-                                        isSelected
-                                        ? Color.accentColor
-                                        : Color(.tertiaryLabel).opacity(0.35)
-                                    )
-                            )
-                            .foregroundStyle(isSelected ? .white : .primary)
-                            .scaleEffect(isSelected ? 1.05 : 1)
-                            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: viewModel.selectedZone)
-                            .id(zone.id)
-                            .onTapGesture {
-                                if animationsEnabled {
-                                    withAnimation {
-                                        viewModel.selectedZone = zone
-                                        proxy.scrollTo(zone.id, anchor: .center)
-                                    }
-                                } else {
-                                    viewModel.selectedZone = zone
-                                    proxy.scrollTo(zone.id, anchor: .center)
-                                }
-                            }
+                        PinnedZoneChip(
+                            zone: zone,
+                            isSelected: zone.id == viewModel.selectedZone?.id,
+                            animationsEnabled: animationsEnabled
+                        ) {
+                            selectZone(zone, proxy: proxy)
+                        }
+                        .id(zone.id)
                     }
                 }
                 .padding(.horizontal, 6)
@@ -133,14 +111,26 @@ struct HomeView: View {
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.05), // Fade in at 5%
-                        .init(color: .black, location: 0.95), // Fade out at 95%
+                        .init(color: .black, location: 0.05),
+                        .init(color: .black, location: 0.95),
                         .init(color: .clear, location: 1)
                     ],
-                startPoint: .leading,
-                endPoint: .trailing
+                    startPoint: .leading,
+                    endPoint: .trailing
                 )
             )
+        }
+    }
+
+    private func selectZone(_ zone: Zone, proxy: ScrollViewProxy) {
+        if animationsEnabled {
+            withAnimation {
+                viewModel.selectedZone = zone
+                proxy.scrollTo(zone.id, anchor: .center)
+            }
+        } else {
+            viewModel.selectedZone = zone
+            proxy.scrollTo(zone.id, anchor: .center)
         }
     }
 
@@ -555,5 +545,40 @@ struct ProviderLogo: View {
             }
 #endif
         }
+    }
+}
+
+struct PinnedZoneChip: View {
+    let zone: Zone
+    let isSelected: Bool
+    let animationsEnabled: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Text(zone.name)
+            .font(.system(.body, design: .rounded))
+            .fontWeight(.semibold)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? Color.accentColor : chipBackground)
+            )
+            .foregroundStyle(isSelected ? .white : .primary)
+            .scaleEffect(isSelected ? 1.05 : 1)
+            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: isSelected)
+            .onTapGesture {
+                onSelect()
+            }
+    }
+
+    private var chipBackground: Color {
+#if os(iOS)
+        return Color(.tertiaryLabel).opacity(0.35)
+#elseif os(macOS)
+        return Color(nsColor: .tertiaryLabelColor).opacity(0.35)
+#else
+        return Color.gray.opacity(0.35)
+#endif
     }
 }

@@ -76,7 +76,11 @@ final class BreatheViewModel: ObservableObject {
     }
 
     init() {
-        self.isUsAqi = UserDefaults.standard.bool(forKey: "is_us_aqi")
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "is_us_aqi") == nil {
+            defaults.set(true, forKey: "is_us_aqi")
+        }
+        self.isUsAqi = defaults.bool(forKey: "is_us_aqi")
         
         if let data = UserDefaults.standard.data(forKey: "pinned_zones"),
            let decoded = try? JSONDecoder().decode([String].self, from: data) {

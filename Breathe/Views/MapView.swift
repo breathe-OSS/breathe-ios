@@ -102,7 +102,7 @@ struct SelectedZoneCard: View {
                 HStack(alignment: .bottom) {
                     Text("\(aqi)")
                         .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(aqiColor(aqi))
+                        .foregroundStyle(aqiDisplayTextColor(aqi))
                     Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -168,6 +168,20 @@ struct SelectedZoneCard: View {
             default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
             }
         }
+    }
+
+    private func isModerateAqi(_ value: Int) -> Bool {
+        if viewModel.isUsAqi {
+            return (51...100).contains(value)
+        }
+        return (101...200).contains(value)
+    }
+
+    private func aqiDisplayTextColor(_ value: Int) -> Color {
+        if colorScheme == .light && isModerateAqi(value) {
+            return Color(red: 92/255, green: 67/255, blue: 0/255)
+        }
+        return aqiColor(value)
     }
     
     private func formatPollutant(_ raw: String) -> AttributedString {

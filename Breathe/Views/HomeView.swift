@@ -209,12 +209,14 @@ struct HomeView: View {
 
     @ViewBuilder
     private func aqiCard(aqi: Int, response: AqiResponse) -> some View {
+        let aqiTextColor = aqiDisplayTextColor(aqi)
+
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(aqiLabel(aqi))
                     .font(.system(.title3, design: .rounded))
                     .fontWeight(.bold)
-                    .foregroundStyle(aqiColor(aqi))
+                    .foregroundStyle(aqiTextColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
 
@@ -236,7 +238,7 @@ struct HomeView: View {
                 Text("\(aqi)")
                     .font(.system(size: 72, weight: .heavy, design: .monospaced))
                     .monospacedDigit()
-                    .foregroundStyle(aqiColor(aqi))
+                    .foregroundStyle(aqiTextColor)
 
                 Spacer()
 
@@ -475,6 +477,20 @@ struct HomeView: View {
             default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
             }
         }
+    }
+
+    private func isModerateAqi(_ value: Int) -> Bool {
+        if viewModel.isUsAqi {
+            return (51...100).contains(value)
+        }
+        return (101...200).contains(value)
+    }
+
+    private func aqiDisplayTextColor(_ value: Int) -> Color {
+        if colorScheme == .light && isModerateAqi(value) {
+            return Color(red: 92/255, green: 67/255, blue: 0/255)
+        }
+        return aqiColor(value)
     }
     
     private func aqiLabel(_ value: Int) -> String {

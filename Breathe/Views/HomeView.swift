@@ -27,7 +27,9 @@ struct HomeView: View {
                 content
             }
             .navigationTitle("Breathe")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.automatic)
+#endif
             .refreshable {
                 await viewModel.refresh()
             }
@@ -148,7 +150,22 @@ struct HomeView: View {
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
+        let pm25 = response.concentrations?["pm2.5"]
+            ?? response.concentrations?["pm2_5"]
+            ?? 0.0
+        let cigarettes = calculateCigarettes(pm25: pm25)
 
+        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        aqiCard(aqi: aqi, response: response)
+        setGaugeSpectrum(position: position)
+        cigarettesCard(cigarettes: cigarettes)
+        concentrationsSection(concentrations: response.concentrations)
+        historySection(history: response.history)
+    }
+
+    @ViewBuilder
+    private func aqiHeader(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
         HStack(spacing: 8) {
             Label("Now Viewing", systemImage: "location.fill")
                 .font(.system(.caption, design: .rounded))
@@ -171,7 +188,10 @@ struct HomeView: View {
                 }
             }
         }
+    }
 
+    @ViewBuilder
+    private func aqiTitle(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(viewModel.selectedZone?.name ?? "Air Quality")
                 .font(.system(.largeTitle, design: .rounded))
@@ -195,7 +215,10 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
 
+    @ViewBuilder
+    private func aqiCard(aqi: Int, response: AqiResponse) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(aqiLabel(aqi))
@@ -284,14 +307,10 @@ struct HomeView: View {
         .padding(.vertical, 6)
         .animation(animationsEnabled ? .snappy : .none, value: aqi)
         .padding(.bottom, 6)
+    }
 
-        setGaugeSpectrum(position: position)
-
-        let pm25 = response.concentrations?["pm2.5"]
-            ?? response.concentrations?["pm2_5"]
-            ?? 0.0
-        let cigarettes = calculateCigarettes(pm25: pm25)
-
+    @ViewBuilder
+    private func cigarettesCard(cigarettes: Double) -> some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
@@ -312,17 +331,23 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
 
+    @ViewBuilder
+    private func concentrationsSection(concentrations: [String: Double]?) -> some View {
         Text("Concentrations")
             .font(.system(.title, design: .rounded))
             .fontWeight(.semibold)
             .padding(.top, 10)
 
-        if let concentrations = response.concentrations, !concentrations.isEmpty {
+        if let concentrations, !concentrations.isEmpty {
             pollutantGrid(concentrations: concentrations)
         }
+    }
 
-        if let history = response.history, !history.isEmpty {
+    @ViewBuilder
+    private func historySection(history: [HistoryPoint]?) -> some View {
+        if let history, !history.isEmpty {
             GraphView(history: history, isUsAqi: viewModel.isUsAqi)
                 .padding(.vertical, 10)
         }

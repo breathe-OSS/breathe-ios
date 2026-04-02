@@ -6,38 +6,56 @@ import SwiftUI
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
+        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...", secondaryZones: [])
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
+        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...", secondaryZones: [])
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
         let currentDate = Date()
         var aqiResponse: AqiResponse?
         var zName = "Select Zone"
+        var primaryId: String? = nil
+        var secondaryZones: [(String, AqiResponse)] = []
         
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
         
         // Use user's selected widget zone if configured:
         if let configZone = configuration.selectedZone {
+            primaryId = configZone.id
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: configZone.id)
             zName = aqiResponse?.zoneName ?? configZone.name
         } 
         // fallback to app-selected zone if no configuration is present
         else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
+            primaryId = selectedStr
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
             zName = aqiResponse?.zoneName ?? "Loading..."
         } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
                   let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
                   let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
             // fallback for now if no configuration is selected and no active selection exists
+            primaryId = firstPinned
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
             zName = aqiResponse?.zoneName ?? "Loading..."
         }
         
-        let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName)
+        if let primaryId = primaryId, let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
+           let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned) {
+            
+            // Limit secondary fetches to 3 items and avoid the primaryId
+            let others = pinnedIds.filter { $0 != primaryId }.prefix(3)
+            
+            for zoneId in others {
+                if let aqiStr = try? await BreatheAPI.shared.getZoneAqi(zoneId: zoneId) {
+                    secondaryZones.append((aqiStr.zoneName ?? zoneId, aqiStr))
+                }
+            }
+        }
+        
+        let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName, secondaryZones: secondaryZones)
         
         // Refresh every 16 mins
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
@@ -49,6 +67,7 @@ struct SimpleEntry: TimelineEntry {
     let date: Date
     let aqi: AqiResponse?
     let zoneName: String
+    let secondaryZones: [(String, AqiResponse)]
 }
 
 struct BreatheWidgetEntryView : View {
@@ -172,6 +191,29 @@ struct BreatheWidgetEntryView : View {
                 Text(isUsAqi ? "US AQI" : "NAQI")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundColor(.white.opacity(0.8))
+            }
+            
+            if !entry.secondaryZones.isEmpty {
+                Divider()
+                    .background(Color.white.opacity(0.3))
+                    .padding(.vertical, 4)
+                
+                VStack(spacing: 6) {
+                    ForEach(entry.secondaryZones.prefix(family == .systemMedium ? 1 : 3), id: \.0) { item in
+                        HStack {
+                            Text(item.0)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            Spacer()
+                            if let aqiP = isUsAqi ? (item.1.usAqi ?? item.1.nAqi) : item.1.nAqi {
+                                Text("\(aqiP) \(getAqiDescription(value: aqiP))")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -4,42 +4,44 @@
 import WidgetKit
 import SwiftUI
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        let entry = SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
-        completion(entry)
+    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
+        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
     }
     
-    func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> ()) {
-        Task {
-            let currentDate = Date()
-            var aqiResponse: AqiResponse?
-            var zName = "Select Zone"
-            
-            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
-            
-            if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
-                aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
-                zName = aqiResponse?.zoneName ?? "Loading..."
-            } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
-                      let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
-                      let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
-                // fallback for now if no configuration is selected and no active selection exists
-                aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
-                zName = aqiResponse?.zoneName ?? "Loading..."
-            }
-            
-            let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName)
-            
-            // Refresh every 16 mins
-            let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
-            let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
-            completion(timeline)
+    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
+        let currentDate = Date()
+        var aqiResponse: AqiResponse?
+        var zName = "Select Zone"
+        
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+        
+        // Use user's selected widget zone if configured:
+        if let configZone = configuration.selectedZone {
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: configZone.id)
+            zName = aqiResponse?.zoneName ?? configZone.name
+        } 
+        // fallback to app-selected zone if no configuration is present
+        else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
+            zName = aqiResponse?.zoneName ?? "Loading..."
+        } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
+                  let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
+                  let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
+            // fallback for now if no configuration is selected and no active selection exists
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
+            zName = aqiResponse?.zoneName ?? "Loading..."
         }
+        
+        let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName)
+        
+        // Refresh every 16 mins
+        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 }
 
@@ -257,14 +259,14 @@ struct BreatheWidget: Widget {
     let kind: String = "BreatheWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             BreatheWidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) {
                     Color.black
                 }
         }
         .configurationDisplayName("Breathe AQI")
-        .description("Check the air quality of your selected zones. It updates based on your main app selection.")
+        .description("Check the air quality of your selected zones. You can edit the widget to select a specific pinned zone.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

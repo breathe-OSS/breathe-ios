@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3AFFFFFF2F7E97430062A001 /* BreatheAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AFFFFFF2F7E97430062A003 /* BreatheAPI.swift */; };
+		3AFFFFFF2F7E97430062A002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AFFFFFF2F7E97430062A004 /* Models.swift */; };
 		3A2688FB2F7E97430062A7BB /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2688FA2F7E97430062A7BB /* WidgetKit.framework */; };
 		3A2688FD2F7E97430062A7BB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2688FC2F7E97430062A7BB /* SwiftUI.framework */; };
 		3A26890E2F7E97440062A7BB /* BreatheWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -37,6 +39,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3AFFFFFF2F7E97430062A003 /* BreatheAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Breathe/Networking/BreatheAPI.swift; sourceTree = SOURCE_ROOT; };
+		3AFFFFFF2F7E97430062A004 /* Models.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Breathe/Models/Models.swift; sourceTree = SOURCE_ROOT; };
 		3A1506DD2F7D5F8D00369A29 /* Breathe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Breathe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BreatheWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A2688FA2F7E97430062A7BB /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -233,6 +237,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3AFFFFFF2F7E97430062A001 /* BreatheAPI.swift in Sources */,
+				3AFFFFFF2F7E97430062A002 /* Models.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

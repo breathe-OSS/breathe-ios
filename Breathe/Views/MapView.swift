@@ -95,10 +95,14 @@ struct SelectedZoneCard: View {
                 }
             }
             
-            if viewModel.isLoading {
+            let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
+            let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
+            let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
+            
+            if viewModel.isLoading && aqiData == nil {
                 ProgressView()
                     .padding(.top, 4)
-            } else if let aqi = viewModel.displayAqi {
+            } else if let aqi = displayAqi {
                 HStack(alignment: .bottom) {
                     Text("\(aqi)")
                         .font(.system(.title2, design: .rounded, weight: .bold))
@@ -109,7 +113,7 @@ struct SelectedZoneCard: View {
                         .padding(.bottom, 2)
                     
                     Spacer()
-                    if let p = viewModel.displayPollutant {
+                    if let p = displayPollutant {
                         Text(p.uppercased())
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -123,7 +127,7 @@ struct SelectedZoneCard: View {
             }
             
             // MARK: - Concentrations
-            if let concentrations = viewModel.currentAqi?.concentrations, !concentrations.isEmpty {
+            if let concentrations = aqiData?.concentrations, !concentrations.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
@@ -179,7 +183,7 @@ struct SelectedZoneCard: View {
 
     private func aqiDisplayTextColor(_ value: Int) -> Color {
         if colorScheme == .light && isModerateAqi(value) {
-            return Color(red: 92/255, green: 67/255, blue: 0/255)
+            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
         }
         return aqiColor(value)
     }

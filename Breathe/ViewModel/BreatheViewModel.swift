@@ -22,14 +22,14 @@ final class BreatheViewModel: ObservableObject {
     @Published var selectedZone: Zone? {
         didSet {
             guard let zone = selectedZone else { return }
-            Task { await fetchAqi(for: zone) }
+            Task { await fetchAqi(for: zone, isMapSelection: false) }
         }
     }
     
     @Published var selectedMapZone: Zone? {
         didSet {
             guard let zone = selectedMapZone else { return }
-            Task { await fetchAqi(for: zone) }
+            Task { await fetchAqi(for: zone, isMapSelection: true) }
         }
     }
     
@@ -110,13 +110,14 @@ final class BreatheViewModel: ObservableObject {
         isLoading = false
     }
 
-    func fetchAqi(for zone: Zone) async {
+    func fetchAqi(for zone: Zone, isMapSelection: Bool = false) async {
         isLoading = true
         do {
-            currentAqi = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
-            if let aqi = currentAqi {
-                allAqiData[zone.id] = aqi
+            let fetchedData = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
+            if !isMapSelection {
+                currentAqi = fetchedData
             }
+            allAqiData[zone.id] = fetchedData
             // Fetch the rest silently for the map
             Task { await fetchAllAqiData() }
         } catch {

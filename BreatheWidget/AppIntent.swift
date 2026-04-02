@@ -30,9 +30,6 @@ struct ZoneQuery: EntityQuery {
     }
     
     func defaultResult() async -> ZoneEntity? {
-        if let zones = try? await BreatheAPI.shared.getZones(), let first = zones.first {
-            return ZoneEntity(id: first.id, name: first.name)
-        }
         return nil
     }
 }

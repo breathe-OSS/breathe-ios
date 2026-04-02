@@ -29,12 +29,12 @@ struct Provider: AppIntentTimelineProvider {
         if let zone = configuration.selectedZone {
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
             zName = zone.name
-        } else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id") {
+        } else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
             zName = aqiResponse?.zoneName ?? "Loading..."
         } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
                   let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
-                  let firstPinned = pinnedIds.first {
+                  let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
             // fallback for now if no configuration is selected and no active selection exists
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
             zName = aqiResponse?.zoneName ?? "Loading..."

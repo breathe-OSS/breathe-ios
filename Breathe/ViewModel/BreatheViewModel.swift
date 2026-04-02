@@ -10,7 +10,8 @@ final class BreatheViewModel: ObservableObject {
     @Published var pinnedZoneIds: [String] = [] {
         didSet {
             if let encoded = try? JSONEncoder().encode(pinnedZoneIds) {
-                UserDefaults.standard.set(encoded, forKey: "pinned_zones")
+                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe") ?? .standard
+                sharedDefaults.set(encoded, forKey: "pinned_zones")
             }
         }
     }
@@ -40,7 +41,8 @@ final class BreatheViewModel: ObservableObject {
 
     @Published var isUsAqi: Bool {
         didSet {
-            UserDefaults.standard.set(isUsAqi, forKey: "is_us_aqi")
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe") ?? .standard
+            sharedDefaults.set(isUsAqi, forKey: "is_us_aqi")
         }
     }
 
@@ -76,13 +78,23 @@ final class BreatheViewModel: ObservableObject {
     }
 
     init() {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: "is_us_aqi") == nil {
-            defaults.set(true, forKey: "is_us_aqi")
-        }
-        self.isUsAqi = defaults.bool(forKey: "is_us_aqi")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe") ?? .standard
         
-        if let data = UserDefaults.standard.data(forKey: "pinned_zones"),
+        // Migrate from standard UserDefaults if migrating for the first time
+        let oldDefaults = UserDefaults.standard
+        if sharedDefaults.object(forKey: "is_us_aqi") == nil && oldDefaults.object(forKey: "is_us_aqi") != nil {
+            sharedDefaults.set(oldDefaults.bool(forKey: "is_us_aqi"), forKey: "is_us_aqi")
+            if let data = oldDefaults.data(forKey: "pinned_zones") {
+                sharedDefaults.set(data, forKey: "pinned_zones")
+            }
+        }
+        
+        if sharedDefaults.object(forKey: "is_us_aqi") == nil {
+            sharedDefaults.set(true, forKey: "is_us_aqi")
+        }
+        self.isUsAqi = sharedDefaults.bool(forKey: "is_us_aqi")
+        
+        if let data = sharedDefaults.data(forKey: "pinned_zones"),
            let decoded = try? JSONDecoder().decode([String].self, from: data) {
             self.pinnedZoneIds = decoded
         }

@@ -32,17 +32,28 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$IOS_KEYCHAIN_PASSWORD" build.keychain
           security list-keychain -d user -s build.keychain
 
-      - name: Install provisioning profile
+      - name: Install provisioning profiles
         env:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
-          PROFILE_PLIST=$(security cms -D -i profile.mobileprovision)
-          UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$PROFILE_PLIST")
-          NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$PROFILE_PLIST")
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
-          printf 'PROFILE_NAME=%s\n' "$NAME" >> "$GITHUB_ENV"
+          
+          # Main App Profile
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > app_profile.mobileprovision
+          APP_PLIST=$(security cms -D -i app_profile.mobileprovision)
+          APP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$APP_PLIST")
+          APP_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$APP_PLIST")
+          cp app_profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_UUID.mobileprovision"
+          printf 'APP_PROFILE_NAME=%s\n' "$APP_NAME" >> "$GITHUB_ENV"
+          
+          # Widget Profile
+          echo "$IOS_WIDGET_PROVISIONING_PROFILE_BASE64" | base64 --decode > widget_profile.mobileprovision
+          WIDGET_PLIST=$(security cms -D -i widget_profile.mobileprovision)
+          WIDGET_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$WIDGET_PLIST")
+          WIDGET_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$WIDGET_PLIST")
+          cp widget_profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$WIDGET_UUID.mobileprovision"
+          printf 'WIDGET_PROFILE_NAME=%s\n' "$WIDGET_NAME" >> "$GITHUB_ENV"
 
       - name: Build archive
         env:
@@ -56,7 +67,8 @@ jobs:
             -destination 'generic/platform=iOS' \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            APP_PROFILE_SPECIFIER="$APP_PROFILE_NAME" \
+            WIDGET_PROFILE_SPECIFIER="$WIDGET_PROFILE_NAME" \
             clean archive
 
       - name: Export IPA
@@ -64,6 +76,7 @@ jobs:
           EXPORT_METHOD: development # for now
           TEAM_ID: F76Q3J6F82
           BUNDLE_ID: com.sidharthify.Breathe
+          WIDGET_BUNDLE_ID: com.sidharthify.Breathe.BreatheWidget
         run: |
           cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -79,7 +92,9 @@ jobs:
             <key>provisioningProfiles</key>
             <dict>
               <key>$BUNDLE_ID</key>
-              <string>$PROFILE_NAME</string>
+              <string>$APP_PROFILE_NAME</string>
+              <key>$WIDGET_BUNDLE_ID</key>
+              <string>$WIDGET_PROFILE_NAME</string>
             </dict>
             <key>stripSwiftSymbols</key>
             <true/>

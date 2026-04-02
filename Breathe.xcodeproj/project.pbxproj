@@ -6,14 +6,65 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3A2688FB2F7E97430062A7BB /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2688FA2F7E97430062A7BB /* WidgetKit.framework */; };
+		3A2688FD2F7E97430062A7BB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A2688FC2F7E97430062A7BB /* SwiftUI.framework */; };
+		3A26890E2F7E97440062A7BB /* BreatheWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3A26890C2F7E97440062A7BB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3A1506D52F7D5F8D00369A29 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3A2688F72F7E97430062A7BB;
+			remoteInfo = BreatheWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3A26890F2F7E97440062A7BB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				3A26890E2F7E97440062A7BB /* BreatheWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		3A1506DD2F7D5F8D00369A29 /* Breathe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Breathe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BreatheWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A2688FA2F7E97430062A7BB /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		3A2688FC2F7E97430062A7BB /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3A2689122F7E97440062A7BB /* Exceptions for "BreatheWidget" folder in "BreatheWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3A2688F72F7E97430062A7BB /* BreatheWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3A1506DF2F7D5F8D00369A29 /* Breathe */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Breathe;
+			sourceTree = "<group>";
+		};
+		3A2688FE2F7E97430062A7BB /* BreatheWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3A2689122F7E97440062A7BB /* Exceptions for "BreatheWidget" folder in "BreatheWidgetExtension" target */,
+			);
+			path = BreatheWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,6 +77,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3A2688F52F7E97430062A7BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A2688FD2F7E97430062A7BB /* SwiftUI.framework in Frameworks */,
+				3A2688FB2F7E97430062A7BB /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -33,6 +93,8 @@
 			isa = PBXGroup;
 			children = (
 				3A1506DF2F7D5F8D00369A29 /* Breathe */,
+				3A2688FE2F7E97430062A7BB /* BreatheWidget */,
+				3A2688F92F7E97430062A7BB /* Frameworks */,
 				3A1506DE2F7D5F8D00369A29 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +103,18 @@
 			isa = PBXGroup;
 			children = (
 				3A1506DD2F7D5F8D00369A29 /* Breathe.app */,
+				3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3A2688F92F7E97430062A7BB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3A2688FA2F7E97430062A7BB /* WidgetKit.framework */,
+				3A2688FC2F7E97430062A7BB /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +127,12 @@
 				3A1506D92F7D5F8D00369A29 /* Sources */,
 				3A1506DA2F7D5F8D00369A29 /* Frameworks */,
 				3A1506DB2F7D5F8D00369A29 /* Resources */,
+				3A26890F2F7E97440062A7BB /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				3A26890D2F7E97440062A7BB /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				3A1506DF2F7D5F8D00369A29 /* Breathe */,
@@ -69,6 +143,28 @@
 			productName = Breathe;
 			productReference = 3A1506DD2F7D5F8D00369A29 /* Breathe.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3A2688F72F7E97430062A7BB /* BreatheWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3A2689132F7E97440062A7BB /* Build configuration list for PBXNativeTarget "BreatheWidgetExtension" */;
+			buildPhases = (
+				3A2688F42F7E97430062A7BB /* Sources */,
+				3A2688F52F7E97430062A7BB /* Frameworks */,
+				3A2688F62F7E97430062A7BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				3A2688FE2F7E97430062A7BB /* BreatheWidget */,
+			);
+			name = BreatheWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = BreatheWidgetExtension;
+			productReference = 3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -81,6 +177,9 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					3A1506DC2F7D5F8D00369A29 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					3A2688F72F7E97430062A7BB = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -100,12 +199,20 @@
 			projectRoot = "";
 			targets = (
 				3A1506DC2F7D5F8D00369A29 /* Breathe */,
+				3A2688F72F7E97430062A7BB /* BreatheWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		3A1506DB2F7D5F8D00369A29 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3A2688F62F7E97430062A7BB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +229,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3A2688F42F7E97430062A7BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3A26890D2F7E97440062A7BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3A2688F72F7E97430062A7BB /* BreatheWidgetExtension */;
+			targetProxy = 3A26890C2F7E97440062A7BB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		3A1506FF2F7D5F8F00369A29 /* Debug */ = {
@@ -310,6 +432,62 @@
 			};
 			name = Release;
 		};
+		3A2689102F7E97440062A7BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F76Q3J6F82;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BreatheWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.Breathe.BreatheWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3A2689112F7E97440062A7BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F76Q3J6F82;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BreatheWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.Breathe.BreatheWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -327,6 +505,15 @@
 			buildConfigurations = (
 				3A1507022F7D5F8F00369A29 /* Debug */,
 				3A1507032F7D5F8F00369A29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3A2689132F7E97440062A7BB /* Build configuration list for PBXNativeTarget "BreatheWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3A2689102F7E97440062A7BB /* Debug */,
+				3A2689112F7E97440062A7BB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

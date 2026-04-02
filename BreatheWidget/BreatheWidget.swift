@@ -4,76 +4,47 @@
 import WidgetKit
 import SwiftUI
 
-struct Provider: AppIntentTimelineProvider {
+struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: ConfigurationAppIntent(), aqi: nil, zoneName: "Loading...")
+        SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
     }
 
-    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        if let zone = configuration.selectedZone {
-            if let aqiData = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id) {
-                return SimpleEntry(date: Date(), configuration: configuration, aqi: aqiData, zoneName: zone.name)
-            }
-        }
-        return SimpleEntry(date: Date(), configuration: configuration, aqi: nil, zoneName: configuration.selectedZone?.name ?? "Unknown")
+    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
+        let entry = SimpleEntry(date: Date(), aqi: nil, zoneName: "Loading...")
+        completion(entry)
     }
     
-    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        let currentDate = Date()
-        var aqiResponse: AqiResponse?
-        var zName = configuration.selectedZone?.name ?? "Select Zone"
-        
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
-        
-        // If a zone is selected via intent, use it. Otherwise, fallback.
-        if let zone = configuration.selectedZone {
-            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
-            zName = zone.name
-        } else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
-            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
-            zName = aqiResponse?.zoneName ?? "Loading..."
-        } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
-                  let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
-                  let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
-            // fallback for now if no configuration is selected and no active selection exists
-            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
-            zName = aqiResponse?.zoneName ?? "Loading..."
-        }
-        
-        let entry = SimpleEntry(date: currentDate, configuration: configuration, aqi: aqiResponse, zoneName: zName)
-        
-        // Refresh every 16 mins
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
-        return Timeline(entries: [entry], policy: .after(nextRefresh))
-    }
-    
-    func recommendations() -> [AppIntentRecommendation<ConfigurationAppIntent>] {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
-        var recs: [AppIntentRecommendation<ConfigurationAppIntent>] = []
-        
-        if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
-           let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> ()) {
+        Task {
+            let currentDate = Date()
+            var aqiResponse: AqiResponse?
+            var zName = "Select Zone"
             
-            for id in pinnedIds {
-                let intent = ConfigurationAppIntent()
-                // Using placeholder name, will be hydrated accurately on timeline load
-                intent.selectedZone = ZoneEntity(id: id, name: "Pinned Zone")
-                recs.append(AppIntentRecommendation(intent: intent, description: "Breathe AQI"))
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+            
+            if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id"), !selectedStr.isEmpty {
+                aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
+                zName = aqiResponse?.zoneName ?? "Loading..."
+            } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
+                      let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
+                      let firstPinned = pinnedIds.first, !firstPinned.isEmpty {
+                // fallback for now if no configuration is selected and no active selection exists
+                aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
+                zName = aqiResponse?.zoneName ?? "Loading..."
             }
+            
+            let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName)
+            
+            // Refresh every 16 mins
+            let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
+            let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
+            completion(timeline)
         }
-        
-        if recs.isEmpty {
-            let defaultIntent = ConfigurationAppIntent()
-            recs.append(AppIntentRecommendation(intent: defaultIntent, description: "Breathe AQI"))
-        }
-        
-        return recs
     }
 }
 
 struct SimpleEntry: TimelineEntry {
     let date: Date
-    let configuration: ConfigurationAppIntent
     let aqi: AqiResponse?
     let zoneName: String
 }
@@ -286,14 +257,14 @@ struct BreatheWidget: Widget {
     let kind: String = "BreatheWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
+        StaticConfiguration(kind: kind, provider: Provider()) { entry in
             BreatheWidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) {
                     Color.black
                 }
         }
         .configurationDisplayName("Breathe AQI")
-        .description("Check the air quality of your selected zones.")
+        .description("Check the air quality of your selected zones. It updates based on your main app selection.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

@@ -12,6 +12,7 @@ final class BreatheViewModel: ObservableObject {
             if let encoded = try? JSONEncoder().encode(pinnedZoneIds) {
                 let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
                 sharedDefaults.set(encoded, forKey: "pinned_zones")
+                WidgetCenter.shared.reloadAllTimelines()
             }
         }
     }
@@ -22,10 +23,13 @@ final class BreatheViewModel: ObservableObject {
 
     @Published var selectedZone: Zone? {
         didSet {
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
             if let zone = selectedZone {
-                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
                 sharedDefaults.set(zone.id, forKey: "selected_zone_id")
+            } else {
+                sharedDefaults.removeObject(forKey: "selected_zone_id")
             }
+            WidgetCenter.shared.reloadAllTimelines()
             guard let zone = selectedZone else { return }
             Task { await fetchAqi(for: zone, isMapSelection: false) }
         }

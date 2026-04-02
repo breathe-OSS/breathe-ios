@@ -213,6 +213,7 @@ struct HomeView: View {
                     .font(.system(.title3, design: .rounded))
                     .fontWeight(.bold)
                     .foregroundStyle(aqiTextColor)
+                    .padding(.leading, 6)
 
                 Spacer()
 
@@ -221,7 +222,7 @@ struct HomeView: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .foregroundStyle(.background)
+                    .foregroundStyle(aqiBadgeTextColor(aqi))
                     .background(
                         Capsule()
                             .fill(aqiColor(aqi))
@@ -482,9 +483,17 @@ struct HomeView: View {
 
     private func aqiDisplayTextColor(_ value: Int) -> Color {
         if colorScheme == .light && isModerateAqi(value) {
-            return Color(red: 92/255, green: 67/255, blue: 0/255)
+            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
         }
         return aqiColor(value)
+    }
+
+    private func aqiBadgeTextColor(_ value: Int) -> Color {
+        if viewModel.isUsAqi {
+            return value < 101 ? .black : .white
+        } else {
+            return value < 201 ? .black : .white
+        }
     }
     
     private func aqiLabel(_ value: Int) -> String {

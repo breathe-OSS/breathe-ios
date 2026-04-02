@@ -22,6 +22,10 @@ final class BreatheViewModel: ObservableObject {
 
     @Published var selectedZone: Zone? {
         didSet {
+            if let zone = selectedZone {
+                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe") ?? .standard
+                sharedDefaults.set(zone.id, forKey: "selected_zone_id")
+            }
             guard let zone = selectedZone else { return }
             Task { await fetchAqi(for: zone, isMapSelection: false) }
         }
@@ -109,11 +113,17 @@ final class BreatheViewModel: ObservableObject {
             let fetched = try await BreatheAPI.shared.getZones()
             zones = fetched
             
-            // Set selection to first pinned zone if exists, otherwise keep nil
+            // Set selection to saved selected zone if exists, otherwise fallback to first pinned
             if selectedZone == nil {
-                let currentPinned = pinnedZones
-                if let firstPinned = currentPinned.first {
-                    selectedZone = firstPinned
+                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe") ?? .standard
+                if let savedSelectedId = sharedDefaults.string(forKey: "selected_zone_id"),
+                   let matchedZone = fetched.first(where: { $0.id == savedSelectedId }) {
+                    selectedZone = matchedZone
+                } else {
+                    let currentPinned = pinnedZones
+                    if let firstPinned = currentPinned.first {
+                        selectedZone = firstPinned
+                    }
                 }
             }
         } catch {

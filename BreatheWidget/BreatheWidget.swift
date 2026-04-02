@@ -25,14 +25,17 @@ struct Provider: AppIntentTimelineProvider {
         
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
         
-        // If a zone is selected via intent, use it. Otherwise, use the pinned zones.
+        // If a zone is selected via intent, use it. Otherwise, fallback.
         if let zone = configuration.selectedZone {
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
             zName = zone.name
+        } else if let selectedStr = sharedDefaults?.string(forKey: "selected_zone_id") {
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: selectedStr)
+            zName = aqiResponse?.zoneName ?? "Loading..."
         } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
                   let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
                   let firstPinned = pinnedIds.first {
-            // fallback for now if no configuration is selected
+            // fallback for now if no configuration is selected and no active selection exists
             aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
             zName = aqiResponse?.zoneName ?? "Loading..."
         }
@@ -42,6 +45,29 @@ struct Provider: AppIntentTimelineProvider {
         // Refresh every 16 mins
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
         return Timeline(entries: [entry], policy: .after(nextRefresh))
+    }
+    
+    func recommendations() -> [AppIntentRecommendation<ConfigurationAppIntent>] {
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        var recs: [AppIntentRecommendation<ConfigurationAppIntent>] = []
+        
+        if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
+           let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned) {
+            
+            for id in pinnedIds {
+                let intent = ConfigurationAppIntent()
+                // Using placeholder name, will be hydrated accurately on timeline load
+                intent.selectedZone = ZoneEntity(id: id, name: "Pinned Zone")
+                recs.append(AppIntentRecommendation(intent: intent, description: "Breathe AQI"))
+            }
+        }
+        
+        if recs.isEmpty {
+            let defaultIntent = ConfigurationAppIntent()
+            recs.append(AppIntentRecommendation(intent: defaultIntent, description: "Breathe AQI"))
+        }
+        
+        return recs
     }
 }
 
@@ -58,7 +84,10 @@ struct BreatheWidgetEntryView : View {
     
     var isUsAqi: Bool {
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
-        return sharedDefaults?.bool(forKey: "is_us_aqi") ?? true
+        if let stored = sharedDefaults?.object(forKey: "is_us_aqi") as? Bool {
+            return stored
+        }
+        return true // Default to US AQI if not set
     }
     
     var aqiValue: Int? {
@@ -67,78 +96,188 @@ struct BreatheWidgetEntryView : View {
     }
     
     var pm25: Double? {
-        entry.aqi?.concentrations?["PM2.5"]
+        entry.aqi?.concentrations?["pm2.5"] ?? entry.aqi?.concentrations?["pm2_5"]
     }
     
     var pm10: Double? {
-        entry.aqi?.concentrations?["PM10"]
+        entry.aqi?.concentrations?["pm10"]
     }
 
     var body: some View {
+        if let aqiValue = aqiValue, let aqiInfo = entry.aqi {
+            if family == .systemSmall {
+                smallWidget(aqiValue: aqiValue, aqiInfo: aqiInfo)
+            } else {
+                mediumLargeWidget(aqiValue: aqiValue, aqiInfo: aqiInfo)
+            }
+        } else {
+            emptyStateView
+        }
+    }
+    
+    @ViewBuilder
+    func smallWidget(aqiValue: Int, aqiInfo: AqiResponse) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
                 Text(entry.zoneName)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                
-                if entry.aqi != nil {
-                    Image(systemName: "location.fill")
-                        .font(.caption2)
-                        .foregroundColor(.white)
-                        .padding(.top, 4)
-                }
+                Spacer()
+                providerLogo(source: aqiInfo.source, height: 16)
+            }
+            
+            Spacer(minLength: 2)
+            
+            HStack(alignment: .center) {
+                Text("\(aqiValue)")
+                    .font(.system(size: 48, weight: .regular))
+                    .foregroundColor(.white)
+                    .minimumScaleFactor(0.5)
                 
                 Spacer()
             }
             
-            if let aqiValue = aqiValue {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(aqiValue)")
-                        .font(.system(size: family == .systemSmall ? 40 : 56, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    Text(isUsAqi ? "US AQI" : "NAQI")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.8))
+            Spacer(minLength: 4)
+            
+            HStack(alignment: .bottom) {
+                HStack(spacing: 8) {
+                    concentrationView(name: "PM2.5", value: pm25)
+                    concentrationView(name: "PM10", value: pm10)
                 }
-                
-                Spacer(minLength: 0)
-                
-                HStack(spacing: 16) {
-                    if let pm25 = pm25 {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("PM2.5")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.8))
-                            Text(String(format: "%.1f", pm25))
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                    }
-                    
-                    if let pm10 = pm10 {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("PM10")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.8))
-                            Text(String(format: "%.1f", pm10))
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                    }
-                }
-            } else {
                 Spacer()
-                Text("No Data")
-                    .font(.subheadline)
+                Text(isUsAqi ? "US AQI" : "NAQI")
+                    .font(.system(size: 10, weight: .regular))
                     .foregroundColor(.white.opacity(0.8))
-                Spacer()
             }
+        }
+    }
+    
+    @ViewBuilder
+    func mediumLargeWidget(aqiValue: Int, aqiInfo: AqiResponse) -> some View {
+        VStack {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(entry.zoneName)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+                Spacer()
+                providerLogo(source: aqiInfo.source, height: 20)
+            }
+            
+            Spacer(minLength: 4)
+            
+            HStack(alignment: .center) {
+                Text("\(aqiValue)")
+                    .font(.system(size: 64, weight: .regular))
+                    .foregroundColor(.white)
+                    .minimumScaleFactor(0.5)
+                
+                Spacer()
+                
+                Text(getAqiDescription(value: aqiValue))
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            
+            Spacer(minLength: 4)
+            
+            HStack(alignment: .bottom) {
+                HStack(spacing: 12) {
+                    concentrationView(name: "PM2.5", value: pm25)
+                    concentrationView(name: "PM10", value: pm10)
+                    concentrationView(name: "CO", value: aqiInfo.concentrations?["co"])
+                    concentrationView(name: "SO₂", value: aqiInfo.concentrations?["so2"])
+                    concentrationView(name: "NO₂", value: aqiInfo.concentrations?["no2"])
+                    concentrationView(name: "CH₄", value: aqiInfo.concentrations?["ch4"])
+                }
+                
+                Spacer()
+                
+                Text(isUsAqi ? "US AQI" : "NAQI")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+    }
+
+    var emptyStateView: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: family == .systemSmall ? 18 : 24))
+                    .foregroundColor(.white)
+            }
+            Spacer()
+            Text("No locations pinned!")
+                .font(family == .systemSmall ? .subheadline : .headline)
+                .foregroundColor(.white)
+            Text("Open the app and pin some to see them here")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    func providerLogo(source: String?, height: CGFloat) -> some View {
+        if let source = source {
+            if source.lowercased().contains("airgradient") {
+                Image("airgradient_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: height)
+            } else if source.lowercased().contains("openmeteo") {
+                Image("openmeteo_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: height)
+            } else {
+                Text(source)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    func concentrationView(name: String, value: Double?) -> some View {
+        if let val = value {
+            VStack(alignment: .center, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 8, weight: .regular))
+                    .foregroundColor(.white.opacity(0.8))
+                Text(String(format: "%.1f", val))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+        }
+    }
+    
+    func getAqiDescription(value: Int) -> String {
+        if isUsAqi {
+            switch value {
+            case 0...50: return "Good"
+            case 51...100: return "Moderate"
+            case 101...150: return "Unhealthy (SG)"
+            case 151...200: return "Unhealthy"
+            case 201...300: return "Very Unhealthy"
+            default: return "Hazardous"
+            } // US AQI
+        } else {
+            switch value {
+            case 0...50: return "Good"
+            case 51...100: return "Satisfactory"
+            case 101...200: return "Moderate"
+            case 201...300: return "Poor"
+            case 301...400: return "Very Poor"
+            default: return "Severe"
+            } // NAQI
         }
     }
 }

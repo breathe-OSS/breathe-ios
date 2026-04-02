@@ -1,9 +1,6 @@
-//
 //  AppIntent.swift
 //  BreatheWidget
-//
-//  Created by user948538 on 4/2/26.
-//
+
 
 import WidgetKit
 import AppIntents

@@ -1,56 +1,154 @@
-//
 //  BreatheWidget.swift
 //  BreatheWidget
-//
-//  Created by user948538 on 4/2/26.
-//
 
 import WidgetKit
 import SwiftUI
 
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: ConfigurationAppIntent())
+        SimpleEntry(date: Date(), configuration: ConfigurationAppIntent(), aqi: nil, zoneName: "Loading...")
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: configuration)
+        if let zone = configuration.selectedZone {
+            if let aqiData = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id) {
+                return SimpleEntry(date: Date(), configuration: configuration, aqi: aqiData, zoneName: zone.name)
+            }
+        }
+        return SimpleEntry(date: Date(), configuration: configuration, aqi: nil, zoneName: configuration.selectedZone?.name ?? "Unknown")
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        var entries: [SimpleEntry] = []
-
-        // Generate a timeline consisting of five entries an hour apart, starting from the current date.
         let currentDate = Date()
-        for hourOffset in 0 ..< 5 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SimpleEntry(date: entryDate, configuration: configuration)
-            entries.append(entry)
+        var aqiResponse: AqiResponse?
+        var zName = configuration.selectedZone?.name ?? "Select Zone"
+        
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        
+        // If a zone is selected via intent, use it. Otherwise, use the pinned zones.
+        if let zone = configuration.selectedZone {
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
+            zName = zone.name
+        } else if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
+                  let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned),
+                  let firstPinned = pinnedIds.first {
+            // fallback for now if no configuration is selected
+            aqiResponse = try? await BreatheAPI.shared.getZoneAqi(zoneId: firstPinned)
+            zName = aqiResponse?.zoneName ?? "Loading..."
         }
-
-        return Timeline(entries: entries, policy: .atEnd)
+        
+        let entry = SimpleEntry(date: currentDate, configuration: configuration, aqi: aqiResponse, zoneName: zName)
+        
+        // Refresh every 16 mins
+        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 16, to: currentDate)!
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
-
-//    func relevances() async -> WidgetRelevances<ConfigurationAppIntent> {
-//        // Generate a list containing the contexts this widget is relevant in.
-//    }
 }
 
 struct SimpleEntry: TimelineEntry {
     let date: Date
     let configuration: ConfigurationAppIntent
+    let aqi: AqiResponse?
+    let zoneName: String
 }
 
 struct BreatheWidgetEntryView : View {
+    @Environment(\.widgetFamily) var family
     var entry: Provider.Entry
+    
+    var isUsAqi: Bool {
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        return sharedDefaults?.bool(forKey: "is_us_aqi") ?? true
+    }
+    
+    var aqiValue: Int? {
+        guard let aqi = entry.aqi else { return nil }
+        return isUsAqi ? (aqi.usAqi ?? aqi.nAqi) : aqi.nAqi
+    }
+    
+    var pm25: Double? {
+        entry.aqi?.concentrations?["PM2.5"]
+    }
+    
+    var pm10: Double? {
+        entry.aqi?.concentrations?["PM10"]
+    }
 
     var body: some View {
-        VStack {
-            Text("Time:")
-            Text(entry.date, style: .time)
-
-            Text("Favorite Emoji:")
-            Text(entry.configuration.favoriteEmoji)
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [Color.green.opacity(0.8), Color.teal.opacity(0.9)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(entry.zoneName)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    if entry.aqi != nil {
+                        Image(systemName: "location.fill")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    }
+                    
+                    Spacer()
+                }
+                
+                if let aqiValue = aqiValue {
+                    HStack(alignment: .bottom) {
+                        Text("\(aqiValue)")
+                            .font(.system(size: family == .systemSmall ? 40 : 56, weight: .bold))
+                            .foregroundColor(.white)
+                        if family != .systemSmall {
+                            Text(isUsAqi ? "US AQI" : "NAQI")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding(.bottom, 8)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    HStack {
+                        if let pm25 = pm25 {
+                            VStack(alignment: .leading) {
+                                Text("PM2.5")
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.8))
+                                Text(String(format: "%.1f", pm25))
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        
+                        if let pm10 = pm10 {
+                            Spacer()
+                            VStack(alignment: .leading) {
+                                Text("PM10")
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.8))
+                                Text(String(format: "%.1f", pm10))
+                                    .font(.subheadline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        Spacer()
+                    }
+                } else {
+                    Spacer()
+                    Text("No Data")
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+                }
+            }
+            .padding()
         }
     }
 }
@@ -63,26 +161,8 @@ struct BreatheWidget: Widget {
             BreatheWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
+        .configurationDisplayName("Breathe AQI")
+        .description("Check the air quality of your selected zones.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
-}
-
-extension ConfigurationAppIntent {
-    fileprivate static var smiley: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "😀"
-        return intent
-    }
-    
-    fileprivate static var starEyes: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "🤩"
-        return intent
-    }
-}
-
-#Preview(as: .systemSmall) {
-    BreatheWidget()
-} timeline: {
-    SimpleEntry(date: .now, configuration: .smiley)
-    SimpleEntry(date: .now, configuration: .starEyes)
 }

@@ -12,7 +12,5 @@ import SwiftUI
 struct BreatheWidgetBundle: WidgetBundle {
     var body: some Widget {
         BreatheWidget()
-        BreatheWidgetControl()
-        BreatheWidgetLiveActivity()
     }
 }

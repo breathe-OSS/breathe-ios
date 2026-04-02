@@ -213,8 +213,6 @@ struct HomeView: View {
                     .font(.system(.title3, design: .rounded))
                     .fontWeight(.bold)
                     .foregroundStyle(aqiTextColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
 
                 Spacer()
 

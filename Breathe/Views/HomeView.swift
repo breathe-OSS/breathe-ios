@@ -101,10 +101,6 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.primary.opacity(0.05))
-                )
                 .padding(.bottom, 10)
             }
             .mask(

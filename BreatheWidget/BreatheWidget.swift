@@ -23,7 +23,7 @@ struct Provider: AppIntentTimelineProvider {
         var aqiResponse: AqiResponse?
         var zName = configuration.selectedZone?.name ?? "Select Zone"
         
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
         
         // If a zone is selected via intent, use it. Otherwise, fallback.
         if let zone = configuration.selectedZone {
@@ -48,7 +48,7 @@ struct Provider: AppIntentTimelineProvider {
     }
     
     func recommendations() -> [AppIntentRecommendation<ConfigurationAppIntent>] {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
         var recs: [AppIntentRecommendation<ConfigurationAppIntent>] = []
         
         if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
@@ -83,7 +83,7 @@ struct BreatheWidgetEntryView : View {
     var entry: Provider.Entry
     
     var isUsAqi: Bool {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
         if let stored = sharedDefaults?.object(forKey: "is_us_aqi") as? Bool {
             return stored
         }

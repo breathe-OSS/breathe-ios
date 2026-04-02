@@ -29,7 +29,7 @@ struct ZoneQuery: EntityQuery {
     }
     
     func defaultResult() async -> ZoneEntity? {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
         
         do {
             let zones = try await BreatheAPI.shared.getZones()

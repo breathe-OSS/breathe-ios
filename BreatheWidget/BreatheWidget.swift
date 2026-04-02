@@ -50,7 +50,7 @@ struct Provider: AppIntentTimelineProvider {
             
             for zoneId in others {
                 if let aqiStr = try? await BreatheAPI.shared.getZoneAqi(zoneId: zoneId) {
-                    secondaryZones.append((aqiStr.zoneName ?? zoneId, aqiStr))
+                    secondaryZones.append((aqiStr.zoneName, aqiStr))
                 }
             }
         }
@@ -206,11 +206,10 @@ struct BreatheWidgetEntryView : View {
                                 .foregroundColor(.white)
                                 .lineLimit(1)
                             Spacer()
-                            if let aqiP = isUsAqi ? (item.1.usAqi ?? item.1.nAqi) : item.1.nAqi {
-                                Text("\(aqiP) \(getAqiDescription(value: aqiP))")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
+                            let aqiP = isUsAqi ? (item.1.usAqi ?? item.1.nAqi) : item.1.nAqi
+                            Text("\(aqiP) \(getAqiDescription(value: aqiP))")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
                         }
                     }
                 }

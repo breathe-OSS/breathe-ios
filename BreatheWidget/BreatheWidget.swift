@@ -75,80 +75,70 @@ struct BreatheWidgetEntryView : View {
     }
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [Color.green.opacity(0.8), Color.teal.opacity(0.9)]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(entry.zoneName)
-                        .font(.headline)
-                        .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
+                Text(entry.zoneName)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                if entry.aqi != nil {
+                    Image(systemName: "location.fill")
+                        .font(.caption2)
                         .foregroundColor(.white)
-                        .lineLimit(1)
-                    
-                    if entry.aqi != nil {
-                        Image(systemName: "location.fill")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
+                        .padding(.top, 4)
                 }
                 
-                if let aqiValue = aqiValue {
-                    HStack(alignment: .bottom) {
-                        Text("\(aqiValue)")
-                            .font(.system(size: family == .systemSmall ? 40 : 56, weight: .bold))
-                            .foregroundColor(.white)
-                        if family != .systemSmall {
-                            Text(isUsAqi ? "US AQI" : "NAQI")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
-                                .padding(.bottom, 8)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    HStack {
-                        if let pm25 = pm25 {
-                            VStack(alignment: .leading) {
-                                Text("PM2.5")
-                                    .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text(String(format: "%.1f", pm25))
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        
-                        if let pm10 = pm10 {
-                            Spacer()
-                            VStack(alignment: .leading) {
-                                Text("PM10")
-                                    .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.8))
-                                Text(String(format: "%.1f", pm10))
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        Spacer()
-                    }
-                } else {
-                    Spacer()
-                    Text("No Data")
-                        .foregroundColor(.white.opacity(0.8))
-                    Spacer()
-                }
+                Spacer()
             }
-            .padding()
+            
+            if let aqiValue = aqiValue {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(aqiValue)")
+                        .font(.system(size: family == .systemSmall ? 40 : 56, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text(isUsAqi ? "US AQI" : "NAQI")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                Spacer(minLength: 0)
+                
+                HStack(spacing: 16) {
+                    if let pm25 = pm25 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("PM2.5")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.8))
+                            Text(String(format: "%.1f", pm25))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                    }
+                    
+                    if let pm10 = pm10 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("PM10")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.8))
+                            Text(String(format: "%.1f", pm10))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+            } else {
+                Spacer()
+                Text("No Data")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.8))
+                Spacer()
+            }
         }
     }
 }
@@ -159,7 +149,9 @@ struct BreatheWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             BreatheWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) {
+                    Color.black
+                }
         }
         .configurationDisplayName("Breathe AQI")
         .description("Check the air quality of your selected zones.")

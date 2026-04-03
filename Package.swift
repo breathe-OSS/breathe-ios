@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Package.swift
+ *
+ * Copyright (C) 2026           sidharthify <wednisegit@gmail.com>
+ * Copyright (C) 2026           SleeperOfSaturn <sanidhya1998@icloud.com>
+ */
+
 // swift-tools-version: 6.0
 import PackageDescription
 

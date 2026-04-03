@@ -49,7 +49,7 @@ struct ZoneQuery: EntityQuery {
         let zones = try await BreatheAPI.shared.getZones()
         
         // Let's only suggest pinned zones for the widget
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
         if let savedPinned = sharedDefaults?.data(forKey: "pinned_zones"),
            let pinnedIds = try? JSONDecoder().decode([String].self, from: savedPinned) {
             
@@ -63,7 +63,7 @@ struct ZoneQuery: EntityQuery {
     }
     
     func defaultResult() async -> ZoneEntity? {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
         
         do {
             let zones = try await BreatheAPI.shared.getZones()

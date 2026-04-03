@@ -75,8 +75,8 @@ jobs:
         env:
           EXPORT_METHOD: app-store-connect
           TEAM_ID: F76Q3J6F82
-          BUNDLE_ID: com.sidharthify.Breathe
-          WIDGET_BUNDLE_ID: com.sidharthify.Breathe.BreatheWidget
+          BUNDLE_ID: com.sidharthify.BreatheOSS
+          WIDGET_BUNDLE_ID: com.sidharthify.BreatheOSS.BreatheWidget
         run: |
           cat > ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>

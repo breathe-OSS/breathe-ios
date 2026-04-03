@@ -43,7 +43,7 @@ struct Provider: AppIntentTimelineProvider {
         var primaryId: String? = nil
         var secondaryZones: [(String, AqiResponse)] = []
         
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
         
         // Use user's selected widget zone if configured:
         if let configZone = configuration.selectedZone {
@@ -98,7 +98,7 @@ struct BreatheWidgetEntryView : View {
     var entry: Provider.Entry
     
     var isUsAqi: Bool {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
         if let stored = sharedDefaults?.object(forKey: "is_us_aqi") as? Bool {
             return stored
         }

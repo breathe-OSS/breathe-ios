@@ -37,7 +37,7 @@ final class BreatheViewModel: ObservableObject {
     @Published var pinnedZoneIds: [String] = [] {
         didSet {
             if let encoded = try? JSONEncoder().encode(pinnedZoneIds) {
-                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
+                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
                 sharedDefaults.set(encoded, forKey: "pinned_zones")
                 WidgetCenter.shared.reloadAllTimelines()
             }
@@ -50,7 +50,7 @@ final class BreatheViewModel: ObservableObject {
 
     @Published var selectedZone: Zone? {
         didSet {
-            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
             if let zone = selectedZone {
                 sharedDefaults.set(zone.id, forKey: "selected_zone_id")
             } else {
@@ -76,7 +76,7 @@ final class BreatheViewModel: ObservableObject {
 
     @Published var isUsAqi: Bool {
         didSet {
-            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
             sharedDefaults.set(isUsAqi, forKey: "is_us_aqi")
         }
     }
@@ -113,7 +113,7 @@ final class BreatheViewModel: ObservableObject {
     }
 
     init() {
-        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
         
         // Migrate from standard UserDefaults if migrating for the first time
         let oldDefaults = UserDefaults.standard
@@ -146,7 +146,7 @@ final class BreatheViewModel: ObservableObject {
             
             // Set selection to saved selected zone if exists, otherwise fallback to first pinned
             if selectedZone == nil {
-                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.Breathe.BreatheWidget") ?? .standard
+                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
                 if let savedSelectedId = sharedDefaults.string(forKey: "selected_zone_id"),
                    let matchedZone = fetched.first(where: { $0.id == savedSelectedId }) {
                     selectedZone = matchedZone

@@ -398,7 +398,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = F76Q3J6F82;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Breathe;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheOSS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -436,7 +436,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = F76Q3J6F82;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Breathe;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheOSS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -473,7 +473,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = F76Q3J6F82;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BreatheWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = BreatheWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheOSS;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -506,7 +506,7 @@
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = F76Q3J6F82;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BreatheWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = BreatheWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = BreatheOSS;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (

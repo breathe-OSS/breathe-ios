@@ -212,10 +212,13 @@ struct HomeView: View {
                 .fontWidth(.expanded)
 
             if isAirGradient {
-                HStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 6, height: 6)
+                        .alignmentGuide(.firstTextBaseline) { dimensions in
+                            dimensions[VerticalAlignment.bottom] + 0.6
+                        }
                     Text("Live Ground Sensors")
                         .font(.system(.caption, design: .rounded))
                         .fontWeight(.medium)
@@ -377,11 +380,14 @@ struct HomeView: View {
 
                     HStack {
                         Text(formatPollutant(key))
-                            .font(.system(.body, design: .rounded))
+                            .font(.system(.subheadline, design: .rounded))
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary.opacity(0.6))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .allowsTightening(true)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
                             .background(.ultraThinMaterial, in: Capsule())
 
                         Spacer()
@@ -535,35 +541,39 @@ struct HomeView: View {
     }
     
     private func formatPollutant(_ raw: String) -> AttributedString {
-    let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
-    var result = AttributedString()
-    
-    if input == "pm2.5" || input == "pm25" {
-        result.append(AttributedString("PM"))
-        var sub = AttributedString("2.5")
-        sub.baselineOffset = -2
-        sub.font = .system(size: 12, weight: .bold)
-        result.append(sub)
-        return result
-    } else if input == "pm10" {
-        result.append(AttributedString("PM"))
-        var sub = AttributedString("10")
-        sub.baselineOffset = -2
-        sub.font = .system(size: 12, weight: .bold)
-        result.append(sub)
-        return result
-    }
-    
-    for char in raw.uppercased() {
-        if char.isNumber || char == "." {
-            var sub = AttributedString(String(char))
-            sub.baselineOffset = -4
-            sub.font = .system(size: 11)
+        let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
+        let pmSubscriptOffset: CGFloat = -1
+        let pmSubscriptFontSize: CGFloat = 10
+        let digitOffset: CGFloat = -2
+        let digitFontSize: CGFloat = 10
+        var result = AttributedString()
+
+        if input == "pm2.5" || input == "pm25" {
+            result.append(AttributedString("PM"))
+            var sub = AttributedString("2.5")
+            sub.baselineOffset = pmSubscriptOffset
+            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
             result.append(sub)
-        } else {
-            result.append(AttributedString(String(char)))
+            return result
+        } else if input == "pm10" {
+            result.append(AttributedString("PM"))
+            var sub = AttributedString("10")
+            sub.baselineOffset = pmSubscriptOffset
+            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
+            result.append(sub)
+            return result
         }
-    }
+
+        for char in raw.uppercased() {
+            if char.isNumber || char == "." {
+                var sub = AttributedString(String(char))
+                sub.baselineOffset = digitOffset
+                sub.font = .system(size: digitFontSize, weight: .semibold, design: .rounded)
+                result.append(sub)
+            } else {
+                result.append(AttributedString(String(char)))
+            }
+        }
         return result
     }
 }

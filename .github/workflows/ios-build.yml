@@ -73,7 +73,7 @@ jobs:
 
       - name: Export IPA
         env:
-          EXPORT_METHOD: development # for now
+          EXPORT_METHOD: app-store-connect
           TEAM_ID: F76Q3J6F82
           BUNDLE_ID: com.sidharthify.Breathe
           WIDGET_BUNDLE_ID: com.sidharthify.Breathe.BreatheWidget

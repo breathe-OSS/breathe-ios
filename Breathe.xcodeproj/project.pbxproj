@@ -39,7 +39,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3A1506DD2F7D5F8D00369A29 /* Breathe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Breathe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A1506DD2F7D5F8D00369A29 /* BreatheOSS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BreatheOSS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BreatheWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A2688FA2F7E97430062A7BB /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		3A2688FC2F7E97430062A7BB /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -109,7 +109,7 @@
 		3A1506DE2F7D5F8D00369A29 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3A1506DD2F7D5F8D00369A29 /* Breathe.app */,
+				3A1506DD2F7D5F8D00369A29 /* BreatheOSS.app */,
 				3A2688F82F7E97430062A7BB /* BreatheWidgetExtension.appex */,
 			);
 			name = Products;
@@ -157,7 +157,7 @@
 			packageProductDependencies = (
 			);
 			productName = Breathe;
-			productReference = 3A1506DD2F7D5F8D00369A29 /* Breathe.app */;
+			productReference = 3A1506DD2F7D5F8D00369A29 /* BreatheOSS.app */;
 			productType = "com.apple.product-type.application";
 		};
 		3A2688F72F7E97430062A7BB /* BreatheWidgetExtension */ = {
@@ -414,12 +414,16 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.BreatheOSS;
-				PRODUCT_NAME = "BreatheOSS";
+				PRODUCT_NAME = BreatheOSS;
 				PROVISIONING_PROFILE_SPECIFIER = "$(APP_PROFILE_SPECIFIER)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = BreatheOSS;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -453,12 +457,16 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.BreatheOSS;
-				PRODUCT_NAME = "BreatheOSS";
+				PRODUCT_NAME = BreatheOSS;
 				PROVISIONING_PROFILE_SPECIFIER = "$(APP_PROFILE_SPECIFIER)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = BreatheOSS;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -486,7 +494,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.BreatheOSS.BreatheWidget;
-				PRODUCT_NAME = "BreatheWidgetExtension";
+				PRODUCT_NAME = BreatheWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "$(WIDGET_PROFILE_SPECIFIER)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "BreatheOSS Widget";
 				SKIP_INSTALL = YES;
@@ -520,7 +528,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sidharthify.BreatheOSS.BreatheWidget;
-				PRODUCT_NAME = "BreatheWidgetExtension";
+				PRODUCT_NAME = BreatheWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "$(WIDGET_PROFILE_SPECIFIER)";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "BreatheOSS Widget";
 				SKIP_INSTALL = YES;

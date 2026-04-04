@@ -2,6 +2,7 @@
 xtool/
 Breathe/.build/
 Breathe/xtool/
+Breathe.xcodeproj/project.xcworkspace/xcuserdata
 .DS_Store
 .vscode/
 .swiftpm/

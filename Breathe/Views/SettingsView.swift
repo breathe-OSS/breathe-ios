@@ -90,10 +90,10 @@ struct SettingsView: View {
                         }
                     }
                     
-                    if let url = URL(string: "https://github.com/breathe-OSS/breathe") {
+                    if let url = URL(string: "https://github.com/breathe-OSS/breathe-ios") {
                         Link(destination: url) {
                             VStack(alignment: .leading) {
-                                Text("Breathe OSS")
+                                Text("Breathe iOS")
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 Text("View Source on GitHub")

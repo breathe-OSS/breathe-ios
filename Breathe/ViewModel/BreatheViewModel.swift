@@ -33,6 +33,7 @@ import WidgetKit
 final class BreatheViewModel: ObservableObject {
 
     @Published var zones: [Zone] = []
+    @Published var sensorInfos: [SensorInfo] = []
     
     @Published var pinnedZoneIds: [String] = [] {
         didSet {
@@ -141,14 +142,20 @@ final class BreatheViewModel: ObservableObject {
         isLoading = true
         error = nil
         do {
-            let fetched = try await BreatheAPI.shared.getZones()
-            zones = fetched
+            let fetchedZones = try await BreatheAPI.shared.getZones()
+            zones = fetchedZones
+            
+            do {
+                sensorInfos = try await BreatheAPI.shared.getSensorInfo()
+            } catch {
+                print("Failed to fetch sensor info: \(error)")
+            }
             
             // Set selection to saved selected zone if exists, otherwise fallback to first pinned
             if selectedZone == nil {
                 let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
                 if let savedSelectedId = sharedDefaults.string(forKey: "selected_zone_id"),
-                   let matchedZone = fetched.first(where: { $0.id == savedSelectedId }) {
+                   let matchedZone = fetchedZones.first(where: { $0.id == savedSelectedId }) {
                     selectedZone = matchedZone
                 } else {
                     let currentPinned = pinnedZones

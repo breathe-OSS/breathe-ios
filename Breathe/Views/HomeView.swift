@@ -174,6 +174,7 @@ struct HomeView: View {
         setGaugeSpectrum(position: position)
         cigarettesCard(cigarettes: cigarettes)
         concentrationsSection(concentrations: response.concentrations)
+        nodesSection(nodes: response.nodes)
         historySection(history: response.history)
     }
 
@@ -359,6 +360,29 @@ struct HomeView: View {
 
         if let concentrations, !concentrations.isEmpty {
             pollutantGrid(concentrations: concentrations)
+        }
+    }
+
+    @ViewBuilder
+    private func nodesSection(nodes: [String: NodeReading]?) -> some View {
+        if let nodes, !nodes.isEmpty {
+            Text("Individual Ground Sensors")
+                .font(.system(.title, design: .rounded))
+                .fontWeight(.semibold)
+                .padding(.top, 10)
+            
+            VStack(spacing: 8) {
+                // Determine layout: paired down similar to DashboardComponents.kt
+                let sortedNodes = nodes.sorted { $0.key < $1.key }
+                
+                // Group by 2 for a compact grid or just a VStack
+                // In iOS, a LazyVGrid with 2 columns or simply a VStack works.
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    ForEach(sortedNodes, id: \.key) { key, value in
+                        NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
+                    }
+                }
+            }
         }
     }
 

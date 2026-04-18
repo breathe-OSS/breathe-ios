@@ -55,6 +55,7 @@ struct AqiResponse: Codable, Identifiable {
     let trends: Trends?
     let warning: String?
     let source: String?
+    let nodes: [String: NodeReading]?
 
     enum CodingKeys: String, CodingKey {
         case zoneId          = "zone_id"
@@ -67,7 +68,43 @@ struct AqiResponse: Codable, Identifiable {
         case concentrations  = "concentrations_us_units"
         case timestampUnix   = "timestamp_unix"
         case lastUpdateStr   = "last_update"
+        case nodes
         case history, trends, warning, source
+    }
+}
+
+struct NodeReading: Codable {
+    let pm25: Double?
+    let pm10: Double?
+    let temp: Double?
+    let humidity: Double?
+    let aqi: Int?
+    let timestamp: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case temp, humidity, aqi, timestamp
+        case pm25 = "pm2.5"
+        case pm10 = "pm10"
+    }
+}
+
+struct SensorInfoResponse: Codable {
+    let sensors: [SensorInfo]
+}
+
+struct SensorInfo: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let zone: String
+    let provider: String
+    let model: String
+    let locationId: Int
+    let installationDate: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, zone, provider, model
+        case locationId = "location_id"
+        case installationDate = "installation_date"
     }
 }
 

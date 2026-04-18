@@ -60,6 +60,11 @@ final class BreatheAPI: @unchecked Sendable {
         return try await get(path: "/aqi/zone/\(zoneId)")
     }
 
+    func getSensorInfo() async throws -> [SensorInfo] {
+        let response: SensorInfoResponse = try await get(path: "/sensor-info")
+        return response.sensors
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         guard let url = URL(string: baseURL + path) else {
             throw APIError.invalidURL

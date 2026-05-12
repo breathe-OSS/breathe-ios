@@ -52,6 +52,7 @@ struct AqiResponse: Codable, Identifiable {
     let timestampUnix: Double?
     let lastUpdateStr: String?
     let history: [HistoryPoint]?
+    let averages24h: [String: Double]?
     let trends: Trends?
     let warning: String?
     let source: String?
@@ -68,8 +69,24 @@ struct AqiResponse: Codable, Identifiable {
         case concentrations  = "concentrations_us_units"
         case timestampUnix   = "timestamp_unix"
         case lastUpdateStr   = "last_update"
+        case averages24h     = "averages_24h"
         case nodes
         case history, trends, warning, source
+    }
+}
+
+struct NodeHistoryPoint: Codable {
+    let ts: Int
+    let aqi: Int
+    let usAqi: Int?
+    let pm25: Double?
+    let pm10: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case ts, aqi
+        case usAqi = "us_aqi"
+        case pm25  = "pm2_5"
+        case pm10  = "pm10"
     }
 }
 
@@ -79,12 +96,15 @@ struct NodeReading: Codable {
     let temp: Double?
     let humidity: Double?
     let aqi: Int?
+    let usAqi: Int?
     let timestamp: Int?
+    let history: [NodeHistoryPoint]?
 
     enum CodingKeys: String, CodingKey {
-        case temp, humidity, aqi, timestamp
-        case pm25 = "pm2.5"
-        case pm10 = "pm10"
+        case temp, humidity, aqi, timestamp, history
+        case usAqi = "us_aqi"
+        case pm25  = "pm2_5"
+        case pm10  = "pm10"
     }
 }
 

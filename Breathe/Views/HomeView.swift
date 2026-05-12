@@ -163,9 +163,14 @@ struct HomeView: View {
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        let pm25 = response.concentrations?["pm2.5"]
+        // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
+        // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
+        let pm25Instant = response.concentrations?["pm2.5"]
             ?? response.concentrations?["pm2_5"]
             ?? 0.0
+        let pm25 = response.averages24h?["pm2_5"]
+            ?? response.averages24h?["pm2.5"]
+            ?? pm25Instant
         let cigarettes = calculateCigarettes(pm25: pm25)
 
         aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
@@ -175,7 +180,7 @@ struct HomeView: View {
         cigarettesCard(cigarettes: cigarettes)
         concentrationsSection(concentrations: response.concentrations)
         nodesSection(nodes: response.nodes)
-        historySection(history: response.history)
+        historySection(history: response.history, nodes: response.nodes)
     }
 
     @ViewBuilder
@@ -366,7 +371,7 @@ struct HomeView: View {
     @ViewBuilder
     private func nodesSection(nodes: [String: NodeReading]?) -> some View {
         if let nodes, !nodes.isEmpty {
-            Text("Individual Ground Sensors")
+            Text("Individual Node Readings")
                 .font(.system(.title, design: .rounded))
                 .fontWeight(.semibold)
                 .padding(.top, 10)
@@ -387,9 +392,9 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func historySection(history: [HistoryPoint]?) -> some View {
+    private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil) -> some View {
         if let history, !history.isEmpty {
-            GraphView(history: history, isUsAqi: viewModel.isUsAqi)
+            GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
                 .padding(.vertical, 10)
         }
     }

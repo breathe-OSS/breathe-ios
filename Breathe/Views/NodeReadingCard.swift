@@ -42,13 +42,13 @@ struct NodeReadingCard: View {
     private var displayAqi: Int? {
         guard !isDown else { return nil }
         if isUsAqi {
-            return reading.aqi
-        } else {
             return reading.usAqi ?? reading.aqi
+        } else {
+            return reading.aqi
         }
     }
 
-    private var aqiLabelStr: String { isUsAqi ? "NAQI" : "US AQI" }
+    private var aqiLabelStr: String { isUsAqi ? "US AQI" : "NAQI" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

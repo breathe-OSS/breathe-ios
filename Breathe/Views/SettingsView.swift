@@ -103,6 +103,21 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Section(header: Text("About")) {
+                    if let url = URL(string: "https://about.breatheoss.app") {
+                        Link(destination: url) {
+                            VStack(alignment: .leading) {
+                                Text("About Breathe")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text("Our Philosophy & Vision")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
                 
                 Section(header: Text("Performance")) {
                     Toggle(isOn: $animationsEnabled) {

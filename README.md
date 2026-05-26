@@ -31,6 +31,7 @@
 - **Detailed AQI Breakdown**
 - **Map View with Data Overlay**
 - **24-Hour Graph of AQI Data**
+- **Detailed extended graph data for sensor based locations**
 - **Widget Support**
 
 ## Tech Stack

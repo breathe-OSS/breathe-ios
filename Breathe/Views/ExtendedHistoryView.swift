@@ -268,6 +268,33 @@ struct ExtendedHistoryView: View {
         let showPm25 = viewModel.historyState.showPm25
         let showPm10 = viewModel.historyState.showPm10
 
+        struct SeriesPoint: Identifiable {
+            let id: String
+            let date: Date
+            let value: Double
+            let series: String
+        }
+
+        var points: [SeriesPoint] = []
+        for pt in data {
+            if showPm25, let v = pt.pm25 {
+                points.append(SeriesPoint(
+                    id: "\(pt.ts)-pm25",
+                    date: Date(timeIntervalSince1970: TimeInterval(pt.ts)),
+                    value: v,
+                    series: "PM2.5"
+                ))
+            }
+            if showPm10, let v = pt.pm10 {
+                points.append(SeriesPoint(
+                    id: "\(pt.ts)-pm10",
+                    date: Date(timeIntervalSince1970: TimeInterval(pt.ts)),
+                    value: v,
+                    series: "PM10"
+                ))
+            }
+        }
+
         return VStack(alignment: .leading, spacing: 8) {
             Text("Extended History")
                 .font(.system(.headline, design: .rounded))
@@ -284,59 +311,28 @@ struct ExtendedHistoryView: View {
             }
             .font(.system(.caption, design: .rounded))
 
-            Chart {
-                if showPm25 {
-                    ForEach(data.filter { $0.pm25 != nil }) { point in
-                        let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
-                        LineMark(
-                            x: .value("Time", date),
-                            y: .value("PM2.5", point.pm25!)
-                        )
-                        .foregroundStyle(pm25Color)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+            Chart(points) { point in
+                LineMark(
+                    x: .value("Time", point.date),
+                    y: .value("Concentration", point.value)
+                )
+                .foregroundStyle(by: .value("Series", point.series))
+                .interpolationMethod(.catmullRom)
+                .lineStyle(StrokeStyle(lineWidth: 2.5))
 
-                        AreaMark(
-                            x: .value("Time", date),
-                            y: .value("PM2.5", point.pm25!)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [pm25Color.opacity(0.3), pm25Color.opacity(0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .interpolationMethod(.catmullRom)
-                    }
-                }
-
-                if showPm10 {
-                    ForEach(data.filter { $0.pm10 != nil }) { point in
-                        let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
-                        LineMark(
-                            x: .value("Time", date),
-                            y: .value("PM10", point.pm10!)
-                        )
-                        .foregroundStyle(pm10Color)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-
-                        AreaMark(
-                            x: .value("Time", date),
-                            y: .value("PM10", point.pm10!)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [pm10Color.opacity(0.3), pm10Color.opacity(0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .interpolationMethod(.catmullRom)
-                    }
-                }
+                AreaMark(
+                    x: .value("Time", point.date),
+                    y: .value("Concentration", point.value)
+                )
+                .foregroundStyle(by: .value("Series", point.series))
+                .interpolationMethod(.catmullRom)
+                .opacity(0.15)
             }
+            .chartForegroundStyleScale([
+                "PM2.5": pm25Color,
+                "PM10": pm10Color,
+            ])
+            .chartLegend(.hidden)
             .chartYAxis {
                 AxisMarks(position: .leading)
             }

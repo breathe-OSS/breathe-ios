@@ -396,6 +396,32 @@ struct HomeView: View {
         if let history, !history.isEmpty {
             GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
                 .padding(.vertical, 10)
+
+            NavigationLink {
+                ExtendedHistoryView(
+                    zoneName: viewModel.selectedZone?.name ?? "Zone",
+                    nodeKeys: nodes?.keys.sorted() ?? []
+                )
+                .environmentObject(viewModel)
+                .onAppear {
+                    if let zoneId = viewModel.selectedZone?.id {
+                        viewModel.openHistory(zoneId: zoneId)
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "clock.arrow.circlepath")
+                    Text("View Extended History")
+                }
+                .font(.system(.subheadline, design: .rounded))
+                .fontWeight(.medium)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.accentColor, lineWidth: 1)
+                )
+            }
         }
     }
 

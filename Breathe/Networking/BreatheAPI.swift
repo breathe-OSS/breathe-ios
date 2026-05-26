@@ -65,8 +65,29 @@ final class BreatheAPI: @unchecked Sendable {
         return response.sensors
     }
 
-    private func get<T: Decodable>(path: String) async throws -> T {
-        guard let url = URL(string: baseURL + path) else {
+    func getHistoricalData(
+        location: String,
+        timeRange: String,
+        interval: String,
+        metrics: String
+    ) async throws -> HistoricalDataResponse {
+        return try await get(
+            path: "/historical-data/\(location)/\(timeRange)/\(interval)/\(metrics)",
+            queryItems: [URLQueryItem(name: "format", value: "json")]
+        )
+    }
+
+    private func get<T: Decodable>(
+        path: String,
+        queryItems: [URLQueryItem] = []
+    ) async throws -> T {
+        guard var components = URLComponents(string: baseURL + path) else {
+            throw APIError.invalidURL
+        }
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
             throw APIError.invalidURL
         }
 

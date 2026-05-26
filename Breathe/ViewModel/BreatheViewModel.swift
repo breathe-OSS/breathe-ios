@@ -234,4 +234,124 @@ final class BreatheViewModel: ObservableObject {
             selectedZone = currentPinned.first
         }
     }
+
+    // MARK: - Extended History
+
+    @Published var historyState = HistoryState()
+
+    private var historyZoneId: String?
+
+    func openHistory(zoneId: String) {
+        historyZoneId = zoneId
+        historyState = HistoryState()
+        fetchHistoricalData()
+    }
+
+    func setHistoryRange(_ range: String) {
+        historyState.selectedRange = range
+        historyState.showCustomInputs = false
+        fetchHistoricalData()
+    }
+
+    func toggleHistoryCustomInputs() {
+        historyState.showCustomInputs.toggle()
+    }
+
+    func setCustomRange(_ range: String) {
+        historyState.customRange = range
+    }
+
+    func setCustomInterval(_ interval: String) {
+        historyState.customInterval = interval
+    }
+
+    func applyCustomHistory() {
+        historyState.selectedRange = historyState.customRange
+        fetchHistoricalData()
+    }
+
+    func setHistorySensor(_ sensor: String) {
+        historyState.selectedSensor = sensor
+        fetchHistoricalData()
+    }
+
+    func toggleHistoryPm25() {
+        historyState.showPm25.toggle()
+        fetchHistoricalData()
+    }
+
+    func toggleHistoryPm10() {
+        historyState.showPm10.toggle()
+        fetchHistoricalData()
+    }
+
+    private func fetchHistoricalData() {
+        guard let zoneId = historyZoneId else { return }
+        let state = historyState
+
+        let location = state.selectedSensor == "zone"
+            ? zoneId
+            : "\(zoneId)_\(state.selectedSensor)"
+
+        let interval: String
+        if state.showCustomInputs {
+            interval = state.customInterval
+        } else {
+            switch state.selectedRange {
+            case "1w":  interval = "1h"
+            case "1mo": interval = "4h"
+            case "6mo": interval = "1d"
+            default:    interval = "1h"
+            }
+        }
+
+        var metricsList: [String] = []
+        if state.showPm25 { metricsList.append("pm2.5") }
+        if state.showPm10 { metricsList.append("pm10") }
+        if metricsList.isEmpty { metricsList = ["pm2.5", "pm10"] }
+        let metrics = metricsList.joined(separator: ",")
+
+        historyState.isLoading = true
+        historyState.error = nil
+
+        Task {
+            do {
+                let response = try await BreatheAPI.shared.getHistoricalData(
+                    location: location,
+                    timeRange: state.selectedRange,
+                    interval: interval,
+                    metrics: metrics
+                )
+                historyState.isLoading = false
+                historyState.data = response.data
+                historyState.stats = response.stats
+            } catch {
+                historyState.isLoading = false
+                historyState.error = "Failed to load: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func historyCSVURL() -> URL? {
+        guard let zoneId = historyZoneId else { return nil }
+        let state = historyState
+
+        let location = state.selectedSensor == "zone"
+            ? zoneId
+            : "\(zoneId)_\(state.selectedSensor)"
+
+        let interval: String
+        if state.showCustomInputs {
+            interval = state.customInterval
+        } else {
+            switch state.selectedRange {
+            case "1w":  interval = "1h"
+            case "1mo": interval = "4h"
+            case "6mo": interval = "1d"
+            default:    interval = "1h"
+            }
+        }
+
+        return URL(string: "https://api.breatheoss.app/historical-data/\(location)/\(state.selectedRange)/\(interval)/pm2.5,pm10?format=csv")
+    }
 }

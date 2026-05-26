@@ -148,3 +148,59 @@ struct Trends: Codable {
         case change24h = "change_24h"
     }
 }
+
+// MARK: - Extended History
+
+struct HistoricalDataPoint: Codable, Identifiable {
+    var id: Int { ts }
+
+    let zoneId: String?
+    let ts: Int
+    let pm25: Double?
+    let pm10: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case zoneId = "zone_id"
+        case ts
+        case pm25 = "pm2_5"
+        case pm10 = "pm10"
+    }
+}
+
+struct HistoricalStats: Codable {
+    let maxPm25: Double?
+    let minPm25: Double?
+    let avgPm25: Double?
+    let maxPm10: Double?
+    let minPm10: Double?
+    let avgPm10: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case maxPm25 = "max_pm2_5"
+        case minPm25 = "min_pm2_5"
+        case avgPm25 = "avg_pm2_5"
+        case maxPm10 = "max_pm10"
+        case minPm10 = "min_pm10"
+        case avgPm10 = "avg_pm10"
+    }
+}
+
+struct HistoricalDataResponse: Codable {
+    let data: [HistoricalDataPoint]
+    let stats: HistoricalStats?
+}
+
+struct HistoryState {
+    var isLoading = false
+    var data: [HistoricalDataPoint] = []
+    var stats: HistoricalStats? = nil
+    var selectedRange = "1w"
+    var selectedSensor = "zone"
+    var showPm25 = true
+    var showPm10 = true
+    var customRange = "14d"
+    var customInterval = "1h"
+    var showCustomInputs = false
+    var error: String? = nil
+}
+

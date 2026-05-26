@@ -322,14 +322,6 @@ struct ExtendedHistoryView: View {
                     .foregroundStyle(by: .value("Series", point.series))
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
-
-                    AreaMark(
-                        x: .value("Time", point.date),
-                        y: .value("Concentration", point.value)
-                    )
-                    .foregroundStyle(by: .value("Series", point.series))
-                    .interpolationMethod(.catmullRom)
-                    .opacity(0.15)
                 }
 
                 if let selected = selectedDataPoint {

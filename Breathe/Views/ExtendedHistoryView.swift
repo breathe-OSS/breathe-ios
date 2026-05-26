@@ -37,6 +37,8 @@ struct ExtendedHistoryView: View {
     private let pm25Color = Color(red: 168/255, green: 199/255, blue: 250/255)
     private let pm10Color = Color(red: 216/255, green: 180/255, blue: 254/255)
 
+    @State private var selectedDataPoint: HistoricalDataPoint? = nil
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -311,22 +313,63 @@ struct ExtendedHistoryView: View {
             }
             .font(.system(.caption, design: .rounded))
 
-            Chart(points) { point in
-                LineMark(
-                    x: .value("Time", point.date),
-                    y: .value("Concentration", point.value)
-                )
-                .foregroundStyle(by: .value("Series", point.series))
-                .interpolationMethod(.catmullRom)
-                .lineStyle(StrokeStyle(lineWidth: 2.5))
+            Chart {
+                ForEach(points) { point in
+                    LineMark(
+                        x: .value("Time", point.date),
+                        y: .value("Concentration", point.value)
+                    )
+                    .foregroundStyle(by: .value("Series", point.series))
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
 
-                AreaMark(
-                    x: .value("Time", point.date),
-                    y: .value("Concentration", point.value)
-                )
-                .foregroundStyle(by: .value("Series", point.series))
-                .interpolationMethod(.catmullRom)
-                .opacity(0.15)
+                    AreaMark(
+                        x: .value("Time", point.date),
+                        y: .value("Concentration", point.value)
+                    )
+                    .foregroundStyle(by: .value("Series", point.series))
+                    .interpolationMethod(.catmullRom)
+                    .opacity(0.15)
+                }
+
+                if let selected = selectedDataPoint {
+                    let date = Date(timeIntervalSince1970: TimeInterval(selected.ts))
+
+                    RuleMark(x: .value("Time", date))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5]))
+                        .foregroundStyle(Color.secondary)
+                        .annotation(position: .top, spacing: 0) {
+                            tooltipView(for: selected)
+                        }
+
+                    if showPm25, let v = selected.pm25 {
+                        PointMark(
+                            x: .value("Time", date),
+                            y: .value("Concentration", v)
+                        )
+                        .symbolSize(60)
+                        .foregroundStyle(pm25Color)
+                        .annotation(position: .overlay) {
+                            Circle()
+                                .stroke(Color(.systemBackground), lineWidth: 2)
+                                .frame(width: 10, height: 10)
+                        }
+                    }
+
+                    if showPm10, let v = selected.pm10 {
+                        PointMark(
+                            x: .value("Time", date),
+                            y: .value("Concentration", v)
+                        )
+                        .symbolSize(60)
+                        .foregroundStyle(pm10Color)
+                        .annotation(position: .overlay) {
+                            Circle()
+                                .stroke(Color(.systemBackground), lineWidth: 2)
+                                .frame(width: 10, height: 10)
+                        }
+                    }
+                }
             }
             .chartForegroundStyleScale([
                 "PM2.5": pm25Color,
@@ -348,7 +391,24 @@ struct ExtendedHistoryView: View {
             }
             .chartXScale(range: .plotDimension(padding: 10))
             .frame(height: 220)
-            .padding(.top, 8)
+            .padding(.top, selectedDataPoint != nil ? 30 : 8)
+            .animation(.easeInOut(duration: 0.1), value: selectedDataPoint != nil)
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    Rectangle().fill(.clear).contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let locationX = value.location.x - geometry[proxy.plotAreaFrame].origin.x
+                                    guard locationX >= 0, locationX <= proxy.plotAreaSize.width else { return }
+                                    if let date: Date = proxy.value(atX: locationX) {
+                                        selectedDataPoint = findClosestDataPoint(to: date, in: data)
+                                    }
+                                }
+                                .onEnded { _ in selectedDataPoint = nil }
+                        )
+                }
+            }
 
             Text("Concentration (µg/m³)")
                 .font(.system(.caption2, design: .rounded))
@@ -392,6 +452,53 @@ struct ExtendedHistoryView: View {
                     )
                 }
             }
+        }
+    }
+
+    // MARK: - Tooltip
+
+    @ViewBuilder
+    private func tooltipView(for point: HistoricalDataPoint) -> some View {
+        let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
+        let showPm25 = viewModel.historyState.showPm25
+        let showPm10 = viewModel.historyState.showPm10
+
+        VStack(spacing: 4) {
+            HStack(spacing: 12) {
+                if showPm25, let v = point.pm25 {
+                    HStack(spacing: 4) {
+                        Circle().fill(pm25Color).frame(width: 6, height: 6)
+                        Text(String(format: "PM2.5: %.1f", v))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                }
+                if showPm10, let v = point.pm10 {
+                    HStack(spacing: 4) {
+                        Circle().fill(pm10Color).frame(width: 6, height: 6)
+                        Text(String(format: "PM10: %.1f", v))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                }
+            }
+
+            Text(date, format: .dateTime.day().month(.abbreviated).hour().minute())
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.secondarySystemBackground))
+                .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
+        )
+        .padding(.bottom, 8)
+    }
+
+    private func findClosestDataPoint(to date: Date, in data: [HistoricalDataPoint]) -> HistoricalDataPoint? {
+        let target = date.timeIntervalSince1970
+        return data.min { a, b in
+            abs(Double(a.ts) - target) < abs(Double(b.ts) - target)
         }
     }
 }

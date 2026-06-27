@@ -70,11 +70,8 @@ struct MapView: View {
             .overlay(alignment: .bottom) {
                 if viewModel.selectedMapZone != nil {
                     SelectedZoneCard()
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(16)
-                        .padding(.bottom, 20)
-                        .padding(.horizontal)
+                        .padding(.bottom, 24)
+                        .padding(.horizontal, 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -86,97 +83,189 @@ struct MapView: View {
 // MARK: - Selected Zone Quick Card
 struct SelectedZoneCard: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
-    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         let provider = viewModel.selectedMapZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
         
-        VStack(alignment: .leading, spacing: 6) {
+        let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
+        let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
+        let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
+        
+        let formattedTime: String? = {
+            guard let ts = aqiData?.timestampUnix else { return nil }
+            let date = Date(timeIntervalSince1970: ts)
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            return formatter.localizedString(for: date, relativeTo: Date())
+        }()
+        
+        let trendValue: Int? = {
+            guard let history = aqiData?.history, history.count >= 2 else { return nil }
+            let latest  = history[history.count - 1]
+            let previous = history[history.count - 2]
+            let latestVal  = viewModel.isUsAqi ? (latest.usAqi ?? latest.aqi) : latest.aqi
+            let previousVal = viewModel.isUsAqi ? (previous.usAqi ?? previous.aqi) : previous.aqi
+            return latestVal - previousVal
+        }()
+        
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(viewModel.selectedMapZone?.name ?? "")
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 10))
+                    Text("NOW VIEWING")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .tracking(1)
+                }
+                .foregroundStyle(.secondary)
                 
                 Spacer()
-                
-                if isAirGradient {
-                    Link(destination: URL(string: "https://www.airgradient.com/")!) {
-                        ProviderLogo(name: "air_gradient_logo", height: 16)
-                    }
-                } else if isOpenMeteo {
-                    let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
-                    Link(destination: URL(string: "https://www.open-meteo.com/")!) {
-                        ProviderLogo(name: assetName, height: 16)
-                    }
-                }
                 
                 Button(action: {
                     withAnimation {
                         viewModel.selectedMapZone = nil
                     }
                 }) {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.secondary)
-                        .font(.title3)
                 }
             }
             
-            let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
-            let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
-            let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
-            
-            if viewModel.isLoading && aqiData == nil {
-                ProgressView()
-                    .padding(.top, 4)
-            } else if let aqi = displayAqi {
-                HStack(alignment: .bottom) {
-                    Text("\(aqi)")
-                        .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(aqiDisplayTextColor(aqi))
-                    Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, 2)
-                    
-                    Spacer()
-                    if let p = displayPollutant {
-                        Text(p.uppercased())
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(viewModel.selectedMapZone?.name ?? "")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                
+                if isAirGradient {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("Live Ground Sensors")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                } else if isOpenMeteo {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 6, height: 6)
+                        Text("Satellite & Model Data")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
                     }
                 }
-            } else {
-                Text("Waiting for data...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
             }
             
-            // MARK: - Concentrations
-            if let concentrations = aqiData?.concentrations, !concentrations.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
-                            HStack(spacing: 4) {
-                                Text(formatPollutant(key))
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                
-                                Text(String(format: "%.1f", value))
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                            }
-                            .padding(.horizontal, 8)
+            HStack(alignment: .top) {
+                if let aqi = displayAqi {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(aqi)")
+                            .font(.system(size: 64, weight: .heavy, design: .rounded))
+                            .foregroundStyle(aqiDisplayTextColor(aqi))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        
+                        Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(aqiBadgeTextColor(aqi))
+                            .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color(.systemFill).opacity(0.5))
-                            .clipShape(Capsule())
+                            .background(Capsule().fill(aqiColor(aqi)))
+                    }
+                } else {
+                    ProgressView()
+                        .frame(width: 64, height: 64)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 6) {
+                    HStack(spacing: 4) {
+                        Text("Primary")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                        if let p = displayPollutant {
+                            Text(formatPollutant(p))
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
                         }
                     }
-                    .padding(.top, 4)
+                    
+                    if let trend = trendValue {
+                        HStack(spacing: 4) {
+                            Image(systemName: trend == 0 ? "arrow.right" : (trend > 0 ? "arrow.up.right" : "arrow.down.right"))
+                            Text("\(trend > 0 ? "+" : "")\(trend) /hr")
+                        }
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(trend == 0 ? Color.secondary : (trend < 0 ? Color.green : Color.red))
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down.right")
+                                .opacity(0)
+                            Text("-- /hr")
+                        }
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    }
+                    
+                    if let time = formattedTime {
+                        Text(time)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            
+            HStack(spacing: 12) {
+                Spacer()
+                Button(action: {
+                    withAnimation {
+                        viewModel.selectedMapZone = nil
+                    }
+                }) {
+                    Text("Close")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                
+                Button(action: {
+                    if let zone = viewModel.selectedMapZone {
+                        viewModel.selectedZone = zone
+                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
+                        withAnimation {
+                            viewModel.selectedMapZone = nil
+                        }
+                    }
+                }) {
+                    Text("View Full Details")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(red: 10/255, green: 132/255, blue: 255/255))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
                 }
             }
+            .padding(.top, 4)
         }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(red: 23/255, green: 24/255, blue: 27/255))
+                .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
+        )
+        .environment(\.colorScheme, .dark)
     }
     
     private func aqiColor(_ value: Int) -> Color {
@@ -209,10 +298,15 @@ struct SelectedZoneCard: View {
     }
 
     private func aqiDisplayTextColor(_ value: Int) -> Color {
-        if colorScheme == .light && isModerateAqi(value) {
-            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
-        }
         return aqiColor(value)
+    }
+
+    private func aqiBadgeTextColor(_ value: Int) -> Color {
+        if viewModel.isUsAqi {
+            return value < 101 ? .black : .white
+        } else {
+            return value < 201 ? .black : .white
+        }
     }
     
     private func formatPollutant(_ raw: String) -> AttributedString {

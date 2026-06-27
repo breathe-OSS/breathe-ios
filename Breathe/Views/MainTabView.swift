@@ -58,5 +58,8 @@ struct MainTabView: View {
                 .tag(3)
         }
         .animation(animationsEnabled ? .snappy(duration: 0.25) : .none, value: selectedTab)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
+            selectedTab = 0
+        }
     }
 }

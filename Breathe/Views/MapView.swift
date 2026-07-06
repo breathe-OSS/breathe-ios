@@ -85,11 +85,13 @@ struct SelectedZoneCard: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     
     var body: some View {
-        let provider = viewModel.selectedMapZone?.provider ?? ""
+        let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
+        // Prefer the live data source over the zone's static provider so the dot
+        // falls back correctly when an AirGradient zone is serving Open-Meteo data.
+        let provider = aqiData?.source ?? viewModel.selectedMapZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        
-        let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
+
         let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
         let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
         
@@ -353,7 +355,10 @@ struct AQIMarkerView: View {
     var body: some View {
         let aqiVal = getAqi()
         let color = getAqiColor(aqiVal)
-        let isAirGradient = zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
+        // Prefer the live data source over the zone's static provider so the dot
+        // falls back correctly when an AirGradient zone is serving Open-Meteo data.
+        let provider = aqiData?.source ?? zone.provider ?? ""
+        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
         
         ZStack {
             Circle()

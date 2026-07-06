@@ -180,7 +180,7 @@ struct HomeView: View {
         cigarettesCard(cigarettes: cigarettes)
         concentrationsSection(concentrations: response.concentrations)
         nodesSection(nodes: response.nodes)
-        historySection(history: response.history, nodes: response.nodes)
+        historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
     }
 
     @ViewBuilder
@@ -392,35 +392,39 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil) -> some View {
+    private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil, isAirGradient: Bool = false) -> some View {
         if let history, !history.isEmpty {
             GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
                 .padding(.vertical, 10)
 
-            NavigationLink {
-                ExtendedHistoryView(
-                    zoneName: viewModel.selectedZone?.name ?? "Zone",
-                    nodeKeys: nodes?.keys.sorted() ?? []
-                )
-                .environmentObject(viewModel)
-                .onAppear {
-                    if let zoneId = viewModel.selectedZone?.id {
-                        viewModel.openHistory(zoneId: zoneId)
+            // Extended History is backed by AirGradient ground sensor data, so it is
+            // redundant on Open-Meteo only zones.
+            if isAirGradient {
+                NavigationLink {
+                    ExtendedHistoryView(
+                        zoneName: viewModel.selectedZone?.name ?? "Zone",
+                        nodeKeys: nodes?.keys.sorted() ?? []
+                    )
+                    .environmentObject(viewModel)
+                    .onAppear {
+                        if let zoneId = viewModel.selectedZone?.id {
+                            viewModel.openHistory(zoneId: zoneId)
+                        }
                     }
+                } label: {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text("View Extended History")
+                    }
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.medium)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.accentColor, lineWidth: 1)
+                    )
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "clock.arrow.circlepath")
-                    Text("View Extended History")
-                }
-                .font(.system(.subheadline, design: .rounded))
-                .fontWeight(.medium)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.accentColor, lineWidth: 1)
-                )
             }
         }
     }

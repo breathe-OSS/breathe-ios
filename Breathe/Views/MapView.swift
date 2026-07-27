@@ -95,6 +95,7 @@ struct SelectedZoneCard: View {
 
         let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
         let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
+        let isPinned = viewModel.selectedMapZone.map { viewModel.pinnedZoneIds.contains($0.id) } ?? false
         
         let formattedTime: String? = {
             guard let ts = aqiData?.timestampUnix else { return nil }
@@ -227,18 +228,23 @@ struct SelectedZoneCard: View {
             HStack(spacing: 12) {
                 Spacer()
                 Button(action: {
-                    withAnimation {
-                        viewModel.selectedMapZone = nil
+                    if let zone = viewModel.selectedMapZone {
+                        withAnimation {
+                            viewModel.togglePin(for: zone)
+                        }
                     }
                 }) {
-                    Text("Close")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                        )
+                    HStack(spacing: 6) {
+                        Image(systemName: isPinned ? "pin.fill" : "pin")
+                        Text(isPinned ? "Pinned" : "Pin to Home")
+                    }
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
                 }
                 
                 Button(action: {

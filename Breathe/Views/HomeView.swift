@@ -394,8 +394,19 @@ struct HomeView: View {
     @ViewBuilder
     private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil, isAirGradient: Bool = false) -> some View {
         if let history, !history.isEmpty {
-            GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
-                .padding(.vertical, 10)
+            TabView {
+                GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
+                DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .frame(height: 300)
+            .padding(.vertical, 10)
+
+            Text("Swipe for Dots History")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
 
             // Extended History is backed by AirGradient ground sensor data, so it is
             // redundant on Open-Meteo only zones.

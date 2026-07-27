@@ -261,7 +261,27 @@ struct ExtendedHistoryView: View {
                 .foregroundStyle(.red)
                 .padding()
         } else if !viewModel.historyState.data.isEmpty {
-            historyChart
+            chartPager
+        }
+    }
+
+    private var chartPager: some View {
+        VStack(spacing: 8) {
+            TabView {
+                historyChart
+                ExtendedDotGrid(
+                    data: viewModel.historyState.data,
+                    showPm25: viewModel.historyState.showPm25,
+                    showPm10: viewModel.historyState.showPm10
+                )
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .frame(height: 400)
+
+            Text("Swipe for Dots History")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.secondary)
         }
     }
 

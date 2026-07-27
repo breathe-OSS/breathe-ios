@@ -102,15 +102,16 @@ Publicly available AQI data for the J&K & Ladakh region is currently unreliable.
 
 ### Open-Meteo
 
-Used for all pollutant values for **most regions** in J&K & Ladakh (excluding Srinagar, Jammu and Rajouri).
+Used for all pollutant values for **most regions** in J&K & Ladakh.
 Open-Meteo's satellite-based air quality model provides stable and consistent values that generally fall within the expected range of nearby ground measurements.
 
 - Air quality & pollutant data: [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api)
+
 - Weather forecasts & historical data: [Open-Meteo](https://open-meteo.com)
 
 ### AirGradient
 
-Used for the **Srinagar**, **Jammu** and **Rajouri** regions, where the sensors are deployed in real time.
+Used for other regions where we have gotten contributions to, the sensors are deployed in real time.
 
 - Their website: [AirGradient](https://www.airgradient.com/)
 
@@ -122,7 +123,8 @@ The limitations of our current project is that we do not have ground sensors in 
 
 We are actively working to deploy custom physical sensors to improve data density in Jammu. If you are interested in hosting a sensor node, please contact us at: [contact@breatheoss.app](mailto:contact@breatheoss.app)
 
-We have deployed two **AirGradient** sensors in Jammu, Srinagar and Rajouri which provide an accurate measurement of PM10 and PM2.5 values. We are working to deploy them in three other regions.
+We have deployed **AirGradient** sensors in Jammu, Srinagar, Leh, Rajouri, Doda, Samba, Udhampur & Bandipora (as of 28/07/26) which provide an accurate measurement of PM10 and PM2.5 values. We are working
+to deploy them in all other regions.
 
 ## Credits & Developers
 
@@ -134,3 +136,4 @@ This project is fully Free & Open Source Software (FOSS).
 4. [Lostless1907](https://github.com/Lostless1907) (Contributor and developer)
 5. [suveshmoza](https://github.com/suveshmoza) (Contributor and developer)
 6. [empirea9](https://github.com/empirea9) (Contributor)
+

@@ -146,16 +146,6 @@ struct SelectedZoneCard: View {
                         Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
                     )
                 }
-
-                Button(action: {
-                    withAnimation {
-                        viewModel.selectedMapZone = nil
-                    }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.secondary)
-                }
             }
             
             VStack(alignment: .leading, spacing: 4) {

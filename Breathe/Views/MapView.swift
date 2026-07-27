@@ -124,9 +124,29 @@ struct SelectedZoneCard: View {
                         .tracking(1)
                 }
                 .foregroundStyle(.secondary)
-                
+
                 Spacer()
-                
+
+                Button(action: {
+                    if let zone = viewModel.selectedMapZone {
+                        withAnimation {
+                            viewModel.togglePin(for: zone)
+                        }
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: isPinned ? "pin.fill" : "pin")
+                        Text(isPinned ? "Pinned" : "Pin to Home")
+                    }
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                }
+
                 Button(action: {
                     withAnimation {
                         viewModel.selectedMapZone = nil
@@ -228,23 +248,18 @@ struct SelectedZoneCard: View {
             HStack(spacing: 12) {
                 Spacer()
                 Button(action: {
-                    if let zone = viewModel.selectedMapZone {
-                        withAnimation {
-                            viewModel.togglePin(for: zone)
-                        }
+                    withAnimation {
+                        viewModel.selectedMapZone = nil
                     }
                 }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: isPinned ? "pin.fill" : "pin")
-                        Text(isPinned ? "Pinned" : "Pin to Home")
-                    }
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
+                    Text("Close")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
                 }
                 
                 Button(action: {

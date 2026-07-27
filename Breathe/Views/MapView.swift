@@ -83,7 +83,8 @@ struct MapView: View {
 // MARK: - Selected Zone Quick Card
 struct SelectedZoneCard: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
         // Prefer the live data source over the zone's static provider so the dot
@@ -264,10 +265,13 @@ struct SelectedZoneCard: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(red: 23/255, green: 24/255, blue: 27/255))
-                .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
+                .fill(
+                    colorScheme == .dark
+                        ? Color(red: 23/255, green: 24/255, blue: 27/255)
+                        : Color(red: 242/255, green: 242/255, blue: 247/255)
+                )
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.15), radius: 20, x: 0, y: 10)
         )
-        .environment(\.colorScheme, .dark)
     }
     
     private func aqiColor(_ value: Int) -> Color {
@@ -300,6 +304,9 @@ struct SelectedZoneCard: View {
     }
 
     private func aqiDisplayTextColor(_ value: Int) -> Color {
+        if colorScheme == .light && isModerateAqi(value) {
+            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
+        }
         return aqiColor(value)
     }
 

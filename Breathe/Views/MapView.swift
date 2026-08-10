@@ -55,7 +55,9 @@ struct MapView: View {
                             isSelected: isSelected
                         )
                         .onTapGesture {
-                            viewModel.selectedMapZone = zone
+                            withAnimation(.snappy(duration: 0.3)) {
+                                viewModel.selectedMapZone = zone
+                            }
                         }
                     }
                 }
@@ -68,8 +70,8 @@ struct MapView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if viewModel.selectedMapZone != nil {
-                    SelectedZoneCard()
+                if let zone = viewModel.selectedMapZone {
+                    SelectedZoneCard(zone: zone)
                         .padding(.bottom, 24)
                         .padding(.horizontal, 16)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -82,20 +84,22 @@ struct MapView: View {
 
 // MARK: - Selected Zone Quick Card
 struct SelectedZoneCard: View {
+    let zone: Zone
+
     @EnvironmentObject private var viewModel: BreatheViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let aqiData = viewModel.selectedMapZone.flatMap { viewModel.allAqiData[$0.id] }
+        let aqiData = viewModel.allAqiData[zone.id]
         // Prefer the live data source over the zone's static provider so the dot
         // falls back correctly when an AirGradient zone is serving Open-Meteo data.
-        let provider = aqiData?.source ?? viewModel.selectedMapZone?.provider ?? ""
+        let provider = aqiData?.source ?? zone.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
 
         let displayAqi = aqiData.flatMap { viewModel.isUsAqi ? ($0.usAqi ?? $0.nAqi) : $0.nAqi }
         let displayPollutant = aqiData.flatMap { viewModel.isUsAqi ? ($0.usMainPollutant ?? $0.mainPollutant) : $0.mainPollutant }
-        let isPinned = viewModel.selectedMapZone.map { viewModel.pinnedZoneIds.contains($0.id) } ?? false
+        let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
         
         let formattedTime: String? = {
             guard let ts = aqiData?.timestampUnix else { return nil }
@@ -128,11 +132,7 @@ struct SelectedZoneCard: View {
                 Spacer()
 
                 Button(action: {
-                    if let zone = viewModel.selectedMapZone {
-                        withAnimation {
-                            viewModel.togglePin(for: zone)
-                        }
-                    }
+                    viewModel.togglePin(for: zone)
                 }) {
                     HStack(spacing: 6) {
                         Image(systemName: isPinned ? "pin.fill" : "pin")
@@ -149,7 +149,7 @@ struct SelectedZoneCard: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(viewModel.selectedMapZone?.name ?? "")
+                Text(zone.name)
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
                 
@@ -238,7 +238,7 @@ struct SelectedZoneCard: View {
             HStack(spacing: 12) {
                 Spacer()
                 Button(action: {
-                    withAnimation {
+                    withAnimation(.snappy(duration: 0.3)) {
                         viewModel.selectedMapZone = nil
                     }
                 }) {
@@ -253,12 +253,10 @@ struct SelectedZoneCard: View {
                 }
                 
                 Button(action: {
-                    if let zone = viewModel.selectedMapZone {
-                        viewModel.selectedZone = zone
-                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
-                        withAnimation {
-                            viewModel.selectedMapZone = nil
-                        }
+                    viewModel.selectedZone = zone
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
+                    withAnimation(.snappy(duration: 0.3)) {
+                        viewModel.selectedMapZone = nil
                     }
                 }) {
                     Text("View Full Details")

@@ -76,9 +76,29 @@ var body: some View {
 
                                 if let provider = zone.provider {
 
-                                    Text(provider)
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundStyle(.secondary)
+                                    if provider.localizedCaseInsensitiveContains("airgradient") {
+
+                                        HStack(spacing: 4) {
+
+                                            Circle()
+                                                .fill(Color.green)
+                                                .frame(width: 6, height: 6)
+
+                                            Text("Live Ground Sensors")
+                                                .font(.system(.caption, design: .rounded))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    } else if provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo") {
+
+                                        Text("Satellite & Model Data")
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundStyle(.secondary)
+                                    } else {
+
+                                        Text(provider)
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                             }
 

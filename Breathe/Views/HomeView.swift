@@ -37,6 +37,7 @@ struct HomeView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     @Environment(\.colorScheme) var colorScheme
+    @State private var historyPage = 0
     
     let columns = [
         GridItem(.flexible()),
@@ -394,22 +395,34 @@ struct HomeView: View {
     @ViewBuilder
     private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil, isAirGradient: Bool = false) -> some View {
         if let history, !history.isEmpty {
-            TabView {
+            TabView(selection: $historyPage) {
                 GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
                     .padding(.horizontal, 8)
+                    .tag(0)
                 DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
                     .padding(.horizontal, 8)
+                    .tag(1)
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 300)
             .padding(.vertical, 10)
             .padding(.horizontal, -8)
+
+            HStack(spacing: 8) {
+                ForEach(0..<2, id: \.self) { index in
+                    Circle()
+                        .fill(index == historyPage ? Color.primary : Color.secondary.opacity(0.4))
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .animation(.easeInOut(duration: 0.2), value: historyPage)
 
             Text("Swipe for Dots History")
                 .font(.system(.caption, design: .rounded))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
+                .padding(.top, 2)
 
             // Extended History is backed by AirGradient ground sensor data, so it is
             // redundant on Open-Meteo only zones.

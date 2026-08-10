@@ -86,7 +86,7 @@ struct GraphView: View {
             ticks.append(ts)
             ts += 4 * 3600
         }
-        if let prev = ticks.last, last.ts - prev < 2 * 3600 {
+        if let prev = ticks.last, last.ts - prev < 4 * 3600 {
             ticks.removeLast()
         }
         ticks.append(last.ts)

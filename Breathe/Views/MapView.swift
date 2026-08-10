@@ -139,7 +139,7 @@ struct SelectedZoneCard: View {
                         Text(isPinned ? "Pinned" : "Pin to Home")
                     }
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                     .background(

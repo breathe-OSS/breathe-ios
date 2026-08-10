@@ -76,21 +76,19 @@ struct GraphView: View {
         isUsAqi ? (point.usAqi ?? point.aqi) : point.aqi
     }
 
-    // Ticks anchored to the first data point so the axis spans the full plot
-    // instead of starting at an arbitrary calendar boundary.
+    // Evenly spaced ticks spanning the full data range, with interior ticks
+    // rounded to the nearest hour so labels match the gridlines.
     private var xAxisTicks: [Date] {
         guard let first = activePoints.first, let last = activePoints.last, last.ts > first.ts else { return [] }
-        var ticks: [Int] = []
-        var ts = first.ts
-        while ts < last.ts {
-            ticks.append(ts)
-            ts += 4 * 3600
-        }
-        if let prev = ticks.last, last.ts - prev < 4 * 3600 {
-            ticks.removeLast()
+        let span = last.ts - first.ts
+        var ticks = [first.ts]
+        for i in 1..<4 {
+            ticks.append((first.ts + span * i / 4 + 1800) / 3600 * 3600)
         }
         ticks.append(last.ts)
-        return ticks.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+        var seen = Set<Int>()
+        return ticks.filter { seen.insert($0).inserted }
+            .map { Date(timeIntervalSince1970: TimeInterval($0)) }
     }
 
     // MARK: – Body

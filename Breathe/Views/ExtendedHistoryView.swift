@@ -38,6 +38,7 @@ struct ExtendedHistoryView: View {
     private let pm10Color = Color(red: 216/255, green: 180/255, blue: 254/255)
 
     @State private var selectedDataPoint: HistoricalDataPoint? = nil
+    @State private var chartPage = 0
 
     var body: some View {
         ScrollView {
@@ -266,18 +267,31 @@ struct ExtendedHistoryView: View {
     }
 
     private var chartPager: some View {
-        VStack(spacing: 8) {
-            TabView {
+        VStack(spacing: 12) {
+            TabView(selection: $chartPage) {
                 historyChart
+                    .padding(.horizontal, 8)
+                    .tag(0)
                 ExtendedDotGrid(
                     data: viewModel.historyState.data,
                     showPm25: viewModel.historyState.showPm25,
                     showPm10: viewModel.historyState.showPm10
                 )
+                .padding(.horizontal, 8)
+                .tag(1)
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 400)
+            .padding(.horizontal, -8)
+
+            HStack(spacing: 8) {
+                ForEach(0..<2, id: \.self) { index in
+                    Circle()
+                        .fill(index == chartPage ? Color.primary : Color.secondary.opacity(0.4))
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: chartPage)
 
             Text("Swipe for Dots History")
                 .font(.system(.caption, design: .rounded))
@@ -296,6 +310,15 @@ struct ExtendedHistoryView: View {
             let value: Double
             let series: String
         }
+
+        let xAxisTicks: [Date] = {
+            guard let firstTs = data.map(\.ts).min(),
+                  let lastTs = data.map(\.ts).max(),
+                  lastTs > firstTs else { return [] }
+            return (0...4).map {
+                Date(timeIntervalSince1970: TimeInterval(firstTs + (lastTs - firstTs) * $0 / 4))
+            }
+        }()
 
         var points: [SeriesPoint] = []
         for pt in data {
@@ -392,16 +415,20 @@ struct ExtendedHistoryView: View {
                 AxisMarks(position: .leading)
             }
             .chartXAxis {
-                AxisMarks { value in
+                AxisMarks(values: xAxisTicks) { value in
                     AxisGridLine()
                     AxisTick()
                     if let _ = value.as(Date.self) {
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated), collisionResolution: .automatic)
-                            .font(.system(size: 10))
+                        AxisValueLabel(
+                            format: .dateTime.day().month(.abbreviated),
+                            anchor: value.index == 0
+                                ? .topLeading
+                                : (value.index == value.count - 1 ? .topTrailing : nil)
+                        )
+                        .font(.system(size: 10))
                     }
                 }
             }
-            .chartXScale(range: .plotDimension(padding: 10))
             .frame(height: 220)
             .padding(.top, selectedDataPoint != nil ? 30 : 8)
             .animation(.easeInOut(duration: 0.1), value: selectedDataPoint != nil)

@@ -76,6 +76,23 @@ struct GraphView: View {
         isUsAqi ? (point.usAqi ?? point.aqi) : point.aqi
     }
 
+    // Ticks anchored to the first data point so the axis spans the full plot
+    // instead of starting at an arbitrary calendar boundary.
+    private var xAxisTicks: [Date] {
+        guard let first = activePoints.first, let last = activePoints.last, last.ts > first.ts else { return [] }
+        var ticks: [Int] = []
+        var ts = first.ts
+        while ts < last.ts {
+            ticks.append(ts)
+            ts += 4 * 3600
+        }
+        if let prev = ticks.last, last.ts - prev < 2 * 3600 {
+            ticks.removeLast()
+        }
+        ticks.append(last.ts)
+        return ticks.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
     // MARK: – Body
 
     var body: some View {
@@ -212,19 +229,23 @@ struct GraphView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .hour, count: 4)) { value in
+                    AxisMarks(values: xAxisTicks) { value in
                         AxisGridLine()
                         AxisTick()
                         if let _ = value.as(Date.self) {
-                            AxisValueLabel(format: .dateTime.hour(), collisionResolution: .automatic)
-                                .font(.system(size: 10))
+                            AxisValueLabel(
+                                format: .dateTime.hour(),
+                                anchor: value.index == 0
+                                    ? .topLeading
+                                    : (value.index == value.count - 1 ? .topTrailing : nil)
+                            )
+                            .font(.system(size: 10))
                         }
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading)
                 }
-                .chartXScale(range: .plotDimension(padding: 15))
                 .frame(height: 160)
                 .padding(.top, selectedPoint != nil ? 30 : 10)
                 .padding(.bottom, 10)

@@ -396,12 +396,15 @@ struct HomeView: View {
         if let history, !history.isEmpty {
             TabView {
                 GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
+                    .padding(.horizontal, 8)
                 DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
+                    .padding(.horizontal, 8)
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .interactive))
             .frame(height: 300)
             .padding(.vertical, 10)
+            .padding(.horizontal, -8)
 
             Text("Swipe for Dots History")
                 .font(.system(.caption, design: .rounded))

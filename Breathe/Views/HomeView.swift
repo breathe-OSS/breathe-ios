@@ -178,6 +178,9 @@ struct HomeView: View {
         aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         aqiCard(aqi: aqi, response: response)
         setGaugeSpectrum(position: position)
+        if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            WeatherContextCard(weather: weather)
+        }
         cigarettesCard(cigarettes: cigarettes)
         concentrationsSection(concentrations: response.concentrations)
         nodesSection(nodes: response.nodes)
@@ -664,6 +667,44 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Weather Context
+
+struct WeatherContextCard: View {
+    let weather: WeatherInfo
+
+    private var conditionLabel: String {
+        weather.condition.localizedCapitalized
+    }
+
+    private var seasonLabel: String {
+        weather.season.localizedCapitalized
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.2))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: weatherConditionSymbol(weather.condition))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(conditionLabel) · \(seasonLabel)")
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.bold)
+
+                Text(weather.text)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.bottom, 12)
+    }
+}
+
 // MARK: - Helper Views
 struct ProviderLogo: View {
     let name: String
@@ -724,3 +765,8 @@ struct PinnedZoneChip: View {
 #endif
     }
 }
+
+#Preview {
+    HomeView()
+}
+

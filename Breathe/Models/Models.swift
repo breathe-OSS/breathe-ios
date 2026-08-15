@@ -57,6 +57,7 @@ struct AqiResponse: Codable, Identifiable {
     let warning: String?
     let source: String?
     let nodes: [String: NodeReading]?
+    let weather: WeatherInfo?
 
     enum CodingKeys: String, CodingKey {
         case zoneId          = "zone_id"
@@ -71,7 +72,64 @@ struct AqiResponse: Codable, Identifiable {
         case lastUpdateStr   = "last_update"
         case averages24h     = "averages_24h"
         case nodes
-        case history, trends, warning, source
+        case history, trends, warning, source, weather
+    }
+}
+
+struct WeatherInfo: Codable {
+    var condition: String = ""
+    var weatherCode: Int?
+    var precipitation: Double?
+    var season: String = ""
+    var text: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case condition, precipitation, season, text
+        case weatherCode = "weather_code"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        condition = try container.decodeIfPresent(String.self, forKey: .condition) ?? ""
+        weatherCode = try container.decodeIfPresent(Int.self, forKey: .weatherCode)
+        precipitation = try container.decodeIfPresent(Double.self, forKey: .precipitation)
+        season = try container.decodeIfPresent(String.self, forKey: .season) ?? ""
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+    }
+}
+
+struct WeatherHistoryPoint: Codable {
+    let ts: Int
+    var condition: String = ""
+    var precipitation: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case ts, condition, precipitation
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ts = try container.decode(Int.self, forKey: .ts)
+        condition = try container.decodeIfPresent(String.self, forKey: .condition) ?? ""
+        precipitation = try container.decodeIfPresent(Double.self, forKey: .precipitation)
+    }
+}
+
+struct WeatherHistory: Codable {
+    var interval: Int = 3600
+    var points: [WeatherHistoryPoint] = []
+    var zoneId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case interval, points
+        case zoneId = "zone_id"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        interval = try container.decodeIfPresent(Int.self, forKey: .interval) ?? 3600
+        points = try container.decodeIfPresent([WeatherHistoryPoint].self, forKey: .points) ?? []
+        zoneId = try container.decodeIfPresent(String.self, forKey: .zoneId)
     }
 }
 
@@ -202,5 +260,7 @@ struct HistoryState {
     var customInterval = "1h"
     var showCustomInputs = false
     var error: String? = nil
+    var weatherHistory: WeatherHistory? = nil
+    var weatherFilter = "all"
 }
 

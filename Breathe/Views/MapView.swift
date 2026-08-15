@@ -28,6 +28,7 @@
 import SwiftUI
 import MapKit
 
+@available(iOS 17.0, *)
 struct MapView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     

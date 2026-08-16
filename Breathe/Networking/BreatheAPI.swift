@@ -77,6 +77,14 @@ final class BreatheAPI: @unchecked Sendable {
         )
     }
 
+    func getWeatherHistory(
+        zoneId: String,
+        timeRange: String,
+        interval: String
+    ) async throws -> WeatherHistory {
+        return try await get(path: "/weather-history/\(zoneId)/\(timeRange)/\(interval)")
+    }
+
     private func get<T: Decodable>(
         path: String,
         queryItems: [URLQueryItem] = []

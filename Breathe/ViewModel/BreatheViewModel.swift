@@ -285,6 +285,10 @@ final class BreatheViewModel: ObservableObject {
         fetchHistoricalData()
     }
 
+    func setWeatherFilter(_ condition: String) {
+        historyState.weatherFilter = condition
+    }
+
     private func fetchHistoricalData() {
         guard let zoneId = historyZoneId else { return }
         let state = historyState
@@ -316,20 +320,50 @@ final class BreatheViewModel: ObservableObject {
 
         Task {
             do {
-                let response = try await BreatheAPI.shared.getHistoricalData(
+                async let historyTask = BreatheAPI.shared.getHistoricalData(
                     location: location,
                     timeRange: state.selectedRange,
                     interval: interval,
                     metrics: metrics
                 )
+                async let weatherTask = optionalWeatherHistory(
+                    zoneId: zoneId,
+                    timeRange: state.selectedRange,
+                    interval: interval
+                )
+
+                let response = try await historyTask
+                let weather = await weatherTask
+                let groups = weatherPm25Groups(data: response.data, weather: weather)
+                let nextFilter: String
+                if state.weatherFilter != "all" && (groups[state.weatherFilter]?.count ?? 0) == 0 {
+                    nextFilter = "all"
+                } else {
+                    nextFilter = state.weatherFilter
+                }
+
                 historyState.isLoading = false
                 historyState.data = response.data
                 historyState.stats = response.stats
+                historyState.weatherHistory = weather
+                historyState.weatherFilter = nextFilter
             } catch {
                 historyState.isLoading = false
                 historyState.error = "Failed to load: \(error.localizedDescription)"
             }
         }
+    }
+
+    private func optionalWeatherHistory(
+        zoneId: String,
+        timeRange: String,
+        interval: String
+    ) async -> WeatherHistory? {
+        try? await BreatheAPI.shared.getWeatherHistory(
+            zoneId: zoneId,
+            timeRange: timeRange,
+            interval: interval
+        )
     }
 
     func historyCSVURL() -> URL? {

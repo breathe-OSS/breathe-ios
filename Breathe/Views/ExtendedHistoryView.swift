@@ -36,15 +36,38 @@ struct ExtendedHistoryView: View {
 
     private let pm25Color = Color(red: 168/255, green: 199/255, blue: 250/255)
     private let pm10Color = Color(red: 216/255, green: 180/255, blue: 254/255)
+    private let pm25SelectedColor = Color(red: 59/255, green: 110/255, blue: 220/255)
+    private let pm10SelectedColor = Color(red: 140/255, green: 70/255, blue: 210/255)
 
     @State private var selectedDataPoint: HistoricalDataPoint? = nil
     @State private var chartPage = 0
+
+    private var weatherHistory: WeatherHistory? {
+        viewModel.historyState.weatherHistory
+    }
+
+    private var weatherGroups: [String: (sum: Double, count: Int)] {
+        weatherPm25Groups(data: viewModel.historyState.data, weather: weatherHistory)
+    }
+
+    private var filteredData: [HistoricalDataPoint] {
+        filterHistoryByWeather(
+            data: viewModel.historyState.data,
+            weather: weatherHistory,
+            filter: viewModel.historyState.weatherFilter
+        )
+    }
+
+    private var impactCards: [WeatherPm25Group] {
+        weatherImpactCards(data: viewModel.historyState.data, weather: weatherHistory)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 controlsBar
                 rangeSelector
+                weatherSection
                 if let stats = viewModel.historyState.stats {
                     statsPanel(stats: stats)
                 }
@@ -128,8 +151,8 @@ struct ExtendedHistoryView: View {
                     .font(.system(.caption, design: .rounded))
             }
             .toggleStyle(.button)
-            .buttonStyle(.bordered)
-            .tint(viewModel.historyState.showPm25 ? pm25Color : .secondary)
+            .buttonStyle(.borderedProminent)
+            .tint(viewModel.historyState.showPm25 ? pm25SelectedColor : Color.secondary.opacity(0.35))
 
             Toggle(isOn: Binding(
                 get: { viewModel.historyState.showPm10 },
@@ -139,8 +162,8 @@ struct ExtendedHistoryView: View {
                     .font(.system(.caption, design: .rounded))
             }
             .toggleStyle(.button)
-            .buttonStyle(.bordered)
-            .tint(viewModel.historyState.showPm10 ? pm10Color : .secondary)
+            .buttonStyle(.borderedProminent)
+            .tint(viewModel.historyState.showPm10 ? pm10SelectedColor : Color.secondary.opacity(0.35))
         }
     }
 
@@ -209,6 +232,24 @@ struct ExtendedHistoryView: View {
         .animation(.easeInOut(duration: 0.2), value: viewModel.historyState.showCustomInputs)
     }
 
+    // MARK: - Weather Filter + Impact
+
+    @ViewBuilder
+    private var weatherSection: some View {
+        if !viewModel.historyState.isLoading,
+           let weatherHistory,
+           !weatherHistory.points.isEmpty {
+            WeatherFilterChips(
+                selectedFilter: viewModel.historyState.weatherFilter,
+                presentConditions: Set(weatherGroups.filter { $0.value.count > 0 }.keys),
+                onFilterSelected: viewModel.setWeatherFilter
+            )
+            if !impactCards.isEmpty {
+                WeatherImpactPanel(cards: impactCards)
+            }
+        }
+    }
+
     // MARK: - Stats Panel
 
     @ViewBuilder
@@ -261,8 +302,14 @@ struct ExtendedHistoryView: View {
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.red)
                 .padding()
-        } else if !viewModel.historyState.data.isEmpty {
+        } else if !filteredData.isEmpty {
             chartPager
+        } else if !viewModel.historyState.data.isEmpty {
+            Text("No samples for this weather")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.secondary)
+                .padding()
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -273,7 +320,7 @@ struct ExtendedHistoryView: View {
                     .padding(.horizontal, 8)
                     .tag(0)
                 ExtendedDotGrid(
-                    data: viewModel.historyState.data,
+                    data: filteredData,
                     showPm25: viewModel.historyState.showPm25,
                     showPm10: viewModel.historyState.showPm10
                 )
@@ -300,7 +347,7 @@ struct ExtendedHistoryView: View {
     }
 
     private var historyChart: some View {
-        let data = viewModel.historyState.data
+        let data = filteredData
         let showPm25 = viewModel.historyState.showPm25
         let showPm10 = viewModel.historyState.showPm10
 
@@ -539,5 +586,113 @@ struct ExtendedHistoryView: View {
         return data.min { a, b in
             abs(Double(a.ts) - target) < abs(Double(b.ts) - target)
         }
+    }
+}
+
+// MARK: - Weather Filter Chips
+
+struct WeatherFilterChips: View {
+    let selectedFilter: String
+    let presentConditions: Set<String>
+    let onFilterSelected: (String) -> Void
+
+    private var options: [(condition: String, label: String)] {
+        [("all", "All")] + weatherFilterLabels.filter { presentConditions.contains($0.condition) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Filter by weather during that time")
+                .font(.system(.caption, design: .rounded))
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 6) {
+                ForEach(options, id: \.condition) { option in
+                    let isSelected = selectedFilter == option.condition
+                    Button {
+                        if selectedFilter != option.condition {
+                            onFilterSelected(option.condition)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: weatherConditionSymbol(option.condition))
+                                .font(.system(size: 11))
+                            Text(option.label)
+                                .font(.system(.caption2, design: .rounded))
+                                .fontWeight(.medium)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(isSelected ? .accentColor : .secondary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Weather Impact
+
+struct WeatherImpactPanel: View {
+    let cards: [WeatherPm25Group]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Average PM2.5 by weather condition")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.secondary)
+
+            ForEach(Array(stride(from: 0, to: cards.count, by: 2)), id: \.self) { index in
+                HStack(spacing: 12) {
+                    WeatherImpactStat(card: cards[index])
+                    if index + 1 < cards.count {
+                        WeatherImpactStat(card: cards[index + 1])
+                    } else {
+                        Spacer()
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+}
+
+private struct WeatherImpactStat: View {
+    let card: WeatherPm25Group
+
+    private var diffText: String {
+        if card.diffPct == 0 {
+            return "same as average"
+        } else if card.diffPct > 0 {
+            return "+\(card.diffPct)% vs average"
+        } else {
+            return "\(card.diffPct)% vs average"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(card.label) (\(card.hours)h of data)")
+                .font(.system(.caption2, design: .rounded))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Text(String(format: "%.1f µg/m³", card.avg))
+                .font(.system(.headline, design: .rounded))
+                .fontWeight(.bold)
+
+            Text(diffText)
+                .font(.system(.caption2, design: .rounded))
+                .foregroundStyle(card.diffPct <= 0 ? Color.accentColor : Color.orange)
+        }
+        .frame(maxWidth: .infinity)
     }
 }

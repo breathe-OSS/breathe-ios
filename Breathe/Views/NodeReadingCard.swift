@@ -203,7 +203,13 @@ private struct NodeDetailSheet: View {
                             .foregroundStyle(.orange)
                     }
                 } else {
-                    Section(header: Text("Readings")) {
+                    Section(
+                        header: Text("Readings"),
+                        footer: HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "info.circle")
+                            Text("The internal sensor measures conditions inside the module to improve PM accuracy, requiring dashboard corrections that may not perfectly match true ambient temperature and humidity.")
+                        }
+                    ) {
                         infoRow("AQI", displayAqi.map { "\($0)" } ?? "—")
                         infoRow("AQI Standard", aqiLabelStr)
                         infoRow("PM2.5", reading.pm25.map { String(format: "%.2f µg/m³", $0) } ?? "—")

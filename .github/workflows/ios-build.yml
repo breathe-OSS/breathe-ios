@@ -123,3 +123,4 @@ jobs:
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           uses-non-exempt-encryption: 'false'
+          wait-for-processing: 'false'

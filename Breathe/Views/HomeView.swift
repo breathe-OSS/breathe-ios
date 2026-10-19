@@ -38,6 +38,7 @@ struct HomeView: View {
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     @Environment(\.colorScheme) var colorScheme
     @State private var historyPage = 0
+    @State private var showReorderSheet = false
     
     let columns = [
         GridItem(.flexible()),
@@ -60,6 +61,10 @@ struct HomeView: View {
 #endif
             .refreshable {
                 await viewModel.refresh()
+            }
+            .sheet(isPresented: $showReorderSheet) {
+                ReorderPinnedView()
+                    .environmentObject(viewModel)
             }
         }
     }
@@ -109,9 +114,23 @@ struct HomeView: View {
 
     @ViewBuilder
     private func pinnedLocationsSection() -> some View {
-        Text("Pinned Locations")
-            .font(.system(.footnote, design: .rounded))
-            .foregroundStyle(.secondary)
+        HStack {
+            Text("Pinned Locations")
+                .font(.system(.footnote, design: .rounded))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if viewModel.pinnedZones.count > 1 {
+                Button {
+                    showReorderSheet = true
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(.footnote, weight: .semibold))
+                }
+                .accessibilityLabel("Reorder pinned locations")
+            }
+        }
 
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {

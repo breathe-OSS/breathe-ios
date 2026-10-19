@@ -46,7 +46,9 @@ final class BreatheViewModel: ObservableObject {
     }
     
     var pinnedZones: [Zone] {
-        zones.filter { pinnedZoneIds.contains($0.id) }
+        pinnedZoneIds.compactMap { id in
+            zones.first { $0.id == id }
+        }
     }
 
     @Published var selectedZone: Zone? {
@@ -233,6 +235,12 @@ final class BreatheViewModel: ObservableObject {
         if !currentPinned.contains(where: { $0.id == selectedZone?.id }) {
             selectedZone = currentPinned.first
         }
+    }
+
+    func movePinnedZones(from source: IndexSet, to destination: Int) {
+        var currentIds = pinnedZoneIds
+        currentIds.move(fromOffsets: source, toOffset: destination)
+        pinnedZoneIds = currentIds
     }
 
     // MARK: - Extended History

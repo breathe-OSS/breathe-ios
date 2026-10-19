@@ -119,7 +119,7 @@ struct WelcomeView: View {
                     .font(.system(.title2, design: .rounded))
                     .fontWeight(.bold)
 
-                Text("Breathe tracks the air across Jammu & Kashmir. Pin a place to get started and it will live on your Home screen.")
+                Text("Breathe tracks the air across Jammu Kashmir & Ladakh. Pin a place to get started and it will live on your Home screen.")
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.secondary)
 

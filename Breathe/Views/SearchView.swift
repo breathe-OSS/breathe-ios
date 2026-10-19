@@ -52,71 +52,27 @@ var body: some View {
 
             } else {
 
-                ForEach(filteredZones) { zone in
+                let liveZones = filteredZones.filter { isLive($0) }
+                let modelZones = filteredZones.filter { !isLive($0) }
 
-                    let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
-
-                    Button {
-
-                        viewModel.togglePin(for: zone)
-
-                    } label: {
-
-                        HStack(spacing: 12) {
-
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-
-                            VStack(alignment: .leading, spacing: 2) {
-
-                                Text(zone.name)
-                                    .font(.system(.body, design: .rounded))
-                                    .fontWeight(.semibold)
-
-                                if let provider = zone.provider {
-
-                                    if provider.localizedCaseInsensitiveContains("airgradient") {
-
-                                        HStack(spacing: 4) {
-
-                                            Circle()
-                                                .fill(Color.green)
-                                                .frame(width: 6, height: 6)
-
-                                            Text("Live Ground Sensors")
-                                                .font(.system(.caption, design: .rounded))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    } else if provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo") {
-
-                                        Text("Satellite & Model Data")
-                                            .font(.system(.caption, design: .rounded))
-                                            .foregroundStyle(.secondary)
-                                    } else {
-
-                                        Text(provider)
-                                            .font(.system(.caption, design: .rounded))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-
-                            Spacer()
-
-                            Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20))
-                                .foregroundStyle(
-                                    isPinned
-                                    ? Color.accentColor
-                                    : Color.secondary.opacity(0.5)
-                                )
+                if !liveZones.isEmpty {
+                    Section {
+                        ForEach(liveZones) { zone in
+                            zoneRow(zone)
                         }
-                        .padding(.vertical, 12)
-                        .opacity(isPinned ? 1 : 0.85)
+                    } header: {
+                        sectionHeader(title: "Live Ground Sensors", subtitle: "Real-time readings from AirGradient sensors")
                     }
-                    .buttonStyle(.plain)
-                    .animation(.easeInOut(duration: 0.15), value: isPinned)
+                }
+
+                if !modelZones.isEmpty {
+                    Section {
+                        ForEach(modelZones) { zone in
+                            zoneRow(zone)
+                        }
+                    } header: {
+                        sectionHeader(title: "Satellite & Model Data", subtitle: "Ground sensors coming soon")
+                    }
                 }
             }
         }
@@ -127,5 +83,91 @@ var body: some View {
             await viewModel.loadZones()
         }
     }
+}
+
+private func isLive(_ zone: Zone) -> Bool {
+    zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
+}
+
+private func sectionHeader(title: String, subtitle: String) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+        Text(title)
+            .font(.system(.subheadline, design: .rounded))
+            .fontWeight(.bold)
+            .foregroundStyle(Color.accentColor)
+            .textCase(nil)
+
+        Text(subtitle)
+            .font(.system(.caption, design: .rounded))
+            .foregroundStyle(.secondary)
+            .textCase(nil)
+    }
+}
+
+@ViewBuilder
+private func zoneRow(_ zone: Zone) -> some View {
+    let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
+
+    Button {
+
+        viewModel.togglePin(for: zone)
+
+    } label: {
+
+        HStack(spacing: 12) {
+
+            Image(systemName: "location.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+
+                Text(zone.name)
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.semibold)
+
+                if let provider = zone.provider {
+
+                    if provider.localizedCaseInsensitiveContains("airgradient") {
+
+                        HStack(spacing: 4) {
+
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+
+                            Text("Live Ground Sensors")
+                                .font(.system(.caption, design: .rounded))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo") {
+
+                        Text("Satellite & Model Data")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    } else {
+
+                        Text(provider)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 20))
+                .foregroundStyle(
+                    isPinned
+                    ? Color.accentColor
+                    : Color.secondary.opacity(0.5)
+                )
+        }
+        .padding(.vertical, 12)
+        .opacity(isPinned ? 1 : 0.85)
+    }
+    .buttonStyle(.plain)
+    .animation(.easeInOut(duration: 0.15), value: isPinned)
 }
 }

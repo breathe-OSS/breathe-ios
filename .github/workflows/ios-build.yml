@@ -114,3 +114,15 @@ jobs:
           name: Breathe-${{ github.run_number }}.ipa
           path: Breathe.ipa
           retention-days: 30
+
+      - name: Upload to App Store Connect
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun iTMSTransporter \
+            -m upload \
+            -assetFile Breathe.ipa \
+            -u "$APPLE_ID" \
+            -p "$APPLE_PASSWORD" \
+            -v eXtreme

@@ -39,6 +39,10 @@ struct HomeView: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var historyPage = 0
     @State private var showReorderSheet = false
+    @AppStorage("pinnedOverview") private var pinnedOverview = false
+    @State private var isOverviewExpanded = false
+    @State private var showPinnedHint = false
+    @State private var isWelcomeDeferred = false
     
     let columns = [
         GridItem(.flexible()),
@@ -67,6 +71,49 @@ struct HomeView: View {
                     .environmentObject(viewModel)
             }
         }
+        .sheet(isPresented: welcomeBinding) {
+            WelcomeView(
+                worstEntries: Array(rankedLiveEntries.prefix(3)),
+                bestEntries: Array(rankedLiveEntries.reversed().prefix(3)),
+                isUsAqi: viewModel.isUsAqi,
+                animationsEnabled: animationsEnabled,
+                onSelect: { zone in
+                    viewModel.togglePin(for: zone)
+                    withAnimation(animationsEnabled ? .spring(response: 0.45, dampingFraction: 0.8) : .none) {
+                        showPinnedHint = true
+                    }
+                },
+                onBrowse: {
+                    isWelcomeDeferred = true
+                    NotificationCenter.default.post(name: NSNotification.Name("SwitchToSearchTab"), object: nil)
+                }
+            )
+        }
+    }
+
+    private var rankedLiveEntries: [SnapshotEntry] {
+        viewModel.liveZones
+            .compactMap { zone in
+                viewModel.displayAqi(for: zone.id).map { SnapshotEntry(zone: zone, aqi: $0) }
+            }
+            .filter { $0.aqi > 0 }
+            .sorted { $0.aqi > $1.aqi }
+    }
+
+    private var welcomeBinding: Binding<Bool> {
+        Binding(
+            get: {
+                !viewModel.hasOnboarded
+                    && viewModel.pinnedZones.isEmpty
+                    && !isWelcomeDeferred
+                    && rankedLiveEntries.count >= 2
+            },
+            set: { _ in }
+        )
+    }
+
+    private var showOverviewGrid: Bool {
+        pinnedOverview && !viewModel.pinnedZones.isEmpty && !isOverviewExpanded
     }
 
     @ViewBuilder
@@ -74,7 +121,17 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             loadingOrPinnedSection()
 
-            if let aqi = viewModel.displayAqi,
+            if showPinnedHint && !viewModel.pinnedZones.isEmpty {
+                PinnedHintCard {
+                    withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                        showPinnedHint = false
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if !showOverviewGrid,
+               let aqi = viewModel.displayAqi,
                let response = viewModel.currentAqi {
                 aqiSection(aqi: aqi, response: response)
             }
@@ -132,6 +189,50 @@ struct HomeView: View {
             }
         }
 
+        if pinnedOverview {
+            pinnedOverviewSection()
+        } else {
+            pinnedChipsSection()
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedOverviewSection() -> some View {
+        if isOverviewExpanded {
+            Button {
+                withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                    isOverviewExpanded = false
+                }
+            } label: {
+                Label("All Pinned Locations", systemImage: "chevron.left")
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.semibold)
+            }
+            .padding(.bottom, 6)
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                ForEach(viewModel.pinnedZones) { zone in
+                    Button {
+                        viewModel.selectedZone = zone
+                        withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                            isOverviewExpanded = true
+                        }
+                    } label: {
+                        PinnedOverviewCard(
+                            zone: zone,
+                            aqi: viewModel.displayAqi(for: zone.id),
+                            isUsAqi: viewModel.isUsAqi
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.bottom, 10)
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedChipsSection() -> some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {

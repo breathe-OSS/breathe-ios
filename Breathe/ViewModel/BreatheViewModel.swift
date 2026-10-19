@@ -84,6 +84,24 @@ final class BreatheViewModel: ObservableObject {
         }
     }
 
+    @Published var hasOnboarded: Bool = true {
+        didSet {
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
+            sharedDefaults.set(hasOnboarded, forKey: "has_onboarded")
+        }
+    }
+
+    var liveZones: [Zone] {
+        zones.filter { $0.provider?.localizedCaseInsensitiveContains("airgradient") == true }
+    }
+
+    func displayAqi(for zoneId: String) -> Int? {
+        guard let r = allAqiData[zoneId] else {
+            return nil
+        }
+        return isUsAqi ? (r.usAqi ?? r.nAqi) : r.nAqi
+    }
+
     /// Returns the display AQI value based on the selected standard.
     var displayAqi: Int? {
         guard let r = currentAqi else { return nil }
@@ -136,6 +154,7 @@ final class BreatheViewModel: ObservableObject {
            let decoded = try? JSONDecoder().decode([String].self, from: data) {
             self.pinnedZoneIds = decoded
         }
+        self.hasOnboarded = sharedDefaults.bool(forKey: "has_onboarded") || !pinnedZoneIds.isEmpty
         
         Task { await loadZones() }
     }
@@ -151,6 +170,10 @@ final class BreatheViewModel: ObservableObject {
                 sensorInfos = try await BreatheAPI.shared.getSensorInfo()
             } catch {
                 print("Failed to fetch sensor info: \(error)")
+            }
+
+            if pinnedZoneIds.isEmpty {
+                Task { await fetchAllAqiData() }
             }
             
             // Set selection to saved selected zone if exists, otherwise fallback to first pinned
@@ -229,6 +252,10 @@ final class BreatheViewModel: ObservableObject {
             currentIds.append(zone.id)
         }
         pinnedZoneIds = currentIds
+
+        if !currentIds.isEmpty && !hasOnboarded {
+            hasOnboarded = true
+        }
         
         // Handle selection logic when pinning/unpinning
         let currentPinned = pinnedZones

@@ -32,6 +32,7 @@ struct SettingsView: View {
     
     @AppStorage("themeMode") private var themeMode = "auto"
     @AppStorage("animationsEnabled") private var animationsEnabled = true
+    @AppStorage("pinnedOverview") private var pinnedOverview = false
     
     @State private var showDataSourceDialog = false
     
@@ -78,6 +79,17 @@ struct SettingsView: View {
     }
     .pickerStyle(.segmented)
 }
+
+                    Toggle(isOn: $pinnedOverview) {
+                        VStack(alignment: .leading) {
+                            Text("Pinned Overview")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            Text("Show pinned locations as cards on Home")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     
                     Button(action: { showDataSourceDialog = true }) {
                         VStack(alignment: .leading) {

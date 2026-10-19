@@ -115,14 +115,11 @@ jobs:
           path: Breathe.ipa
           retention-days: 30
 
-      - name: Upload to App Store Connect
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: |
-          xcrun iTMSTransporter \
-            -m upload \
-            -assetFile Breathe.ipa \
-            -u "$APPLE_ID" \
-            -p "$APPLE_PASSWORD" \
-            -v eXtreme
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v5
+        with:
+          app-path: Breathe.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          uses-non-exempt-encryption: 'false'

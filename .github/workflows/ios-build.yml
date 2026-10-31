@@ -26,44 +26,8 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO \
-            build          APP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$APP_PLIST")
-          APP_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$APP_PLIST")
-          cp app_profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_UUID.mobileprovision"
-          printf 'APP_PROFILE_NAME=%s\n' "$APP_NAME" >> "$GITHUB_ENV"
-          
-          # Widget Profile
-          echo "$IOS_WIDGET_PROVISIONING_PROFILE_BASE64" | base64 --decode > widget_profile.mobileprovision
-          WIDGET_PLIST=$(security cms -D -i widget_profile.mobileprovision)
-          WIDGET_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$WIDGET_PLIST")
-          WIDGET_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$WIDGET_PLIST")
-          cp widget_profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$WIDGET_UUID.mobileprovision"
-          printf 'WIDGET_PROFILE_NAME=%s\n' "$WIDGET_NAME" >> "$GITHUB_ENV"
-
-      - name: Build archive
-        env:
-          DEVELOPMENT_TEAM: F76Q3J6F82
-        run: |
-          xcodebuild \
-            -project Breathe.xcodeproj \
-            -scheme Breathe \
-            -configuration Release \
-            -archivePath "$PWD/build/Breathe.xcarchive" \
-            -destination 'generic/platform=iOS' \
-            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-            CODE_SIGN_STYLE=Manual \
-            APP_PROFILE_SPECIFIER="$APP_PROFILE_NAME" \
-            WIDGET_PROFILE_SPECIFIER="$WIDGET_PROFILE_NAME" \
-            clean archive
-
-      - name: Export IPA
-        env:
-          EXPORT_METHOD: app-store-connect
-          TEAM_ID: F76Q3J6F82
-          BUNDLE_ID: com.sidharthify.BreatheOSS
-          WIDGET_BUNDLE_ID: com.sidharthify.BreatheOSS.BreatheWidget
-        run: |
-          cat > ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build          <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>

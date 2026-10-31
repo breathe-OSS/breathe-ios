@@ -23,6 +23,10 @@ on:
         description: App Store locale
         required: true
         default: en-US
+      skip_screenshots:
+        description: Skip uploading screenshots
+        type: boolean
+        default: false
 
 jobs:
   submit:
@@ -83,10 +87,47 @@ jobs:
             --arg key "$APPSTORE_PRIVATE_KEY" \
             '{key_id: $key_id, issuer_id: $issuer_id, key: $key, in_house: false}' > "$RUNNER_TEMP/asc_key.json"
 
+      - name: Wait for build
+        env:
+          VERSION: ${{ inputs.version }}
+          BUILD: ${{ inputs.build }}
+        run: |
+          mkdir -p fastlane
+          cat > fastlane/Fastfile <<'RUBY'
+          lane :wait_for_build do
+            Spaceship::ConnectAPI.auth(
+              key_id: JSON.parse(File.read(ENV["KEY_PATH"]))["key_id"],
+              issuer_id: JSON.parse(File.read(ENV["KEY_PATH"]))["issuer_id"],
+              key: JSON.parse(File.read(ENV["KEY_PATH"]))["key"]
+            )
+            app = Spaceship::ConnectAPI::App.find("com.sidharthify.BreatheOSS")
+            ready = false
+            60.times do
+              builds = app.get_builds(includes: "preReleaseVersion", sort: "-uploadedDate", limit: 5)
+              builds.each do |b|
+                UI.message("#{b.app_version} (#{b.version}) #{b.processing_state}")
+              end
+              target = builds.find { |b| b.version == ENV["BUILD"] && b.app_version == ENV["VERSION"] }
+              if target && target.processing_state == "VALID"
+                UI.success("Build #{ENV["BUILD"]} is ready")
+                ready = true
+                break
+              end
+              if target && ["FAILED", "INVALID"].include?(target.processing_state)
+                UI.user_error!("Build #{ENV["BUILD"]} is #{target.processing_state}")
+              end
+              sleep 30
+            end
+            UI.user_error!("Build #{ENV["BUILD"]} never became ready") unless ready
+          end
+          RUBY
+          KEY_PATH="$RUNNER_TEMP/asc_key.json" fastlane wait_for_build
+
       - name: Upload and submit
         env:
           VERSION: ${{ inputs.version }}
           BUILD: ${{ inputs.build }}
+          SKIP_SCREENSHOTS: ${{ inputs.skip_screenshots }}
         run: |
           fastlane deliver \
             --api_key_path "$RUNNER_TEMP/asc_key.json" \
@@ -97,6 +138,7 @@ jobs:
             --skip_binary_upload true \
             --metadata_path fastlane/metadata \
             --screenshots_path fastlane/screenshots \
+            --skip_screenshots "$SKIP_SCREENSHOTS" \
             --overwrite_screenshots false \
             --run_precheck_before_submit false \
             --submit_for_review true \

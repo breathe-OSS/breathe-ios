@@ -1,0 +1,137 @@
+name: Simulator Screenshots
+
+on:
+  push:
+    paths:
+      - 'Breathe/**'
+      - 'Breathe.xcodeproj/**'
+      - '.github/workflows/screenshots.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+
+    env:
+      BUNDLE_ID: com.sidharthify.BreatheOSS
+      GROUP_ID: group.com.sidharthify.BreatheOSS.BreatheWidget
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Build for simulator
+        run: |
+          xcodebuild \
+            -project Breathe.xcodeproj \
+            -scheme Breathe \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            APP_PROFILE_SPECIFIER= \
+            WIDGET_PROFILE_SPECIFIER= \
+            build
+          APP_PATH=$(find build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -n 1)
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Pick pinned zones
+        run: |
+          PINNED=$(curl -sf https://api.breatheoss.app/zones | jq -c '[.zones[] | select(.provider == "airgradient") | .id][:3]')
+          echo "Pinned zones $PINNED"
+          echo "PINNED_HEX=$(printf '%s' "$PINNED" | xxd -p | tr -d '\n')" >> "$GITHUB_ENV"
+
+      - name: Take screenshots
+        run: |
+          set -x
+          mkdir -p shots
+
+          pick_device() {
+            for pattern in "$@"; do
+              udid=$(xcrun simctl list devices available -j | jq -r --arg p "$pattern" '[.devices[][] | select(.name | startswith($p))][0].udid // empty')
+              if [ -n "$udid" ]; then
+                echo "$udid"
+                return
+              fi
+            done
+          }
+
+          seed_prefs() {
+            local udid=$1
+            local dirs=("$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" data)")
+            local group_dir
+            group_dir=$(xcrun simctl get_app_container "$udid" "$BUNDLE_ID" "$GROUP_ID" 2>/dev/null || true)
+            if [ -n "$group_dir" ]; then
+              dirs+=("$group_dir")
+            fi
+            for dir in "${dirs[@]}"; do
+              mkdir -p "$dir/Library/Preferences"
+              plist="$dir/Library/Preferences/$GROUP_ID"
+              defaults write "$plist" has_onboarded -bool YES
+              defaults write "$plist" is_us_aqi -bool YES
+              defaults write "$plist" pinned_zones -data "$PINNED_HEX"
+            done
+          }
+
+          shoot() {
+            local udid=$1 name=$2 tab=$3
+            xcrun simctl terminate "$udid" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$udid" "$BUNDLE_ID" \
+              -initialTab "$tab" \
+              -has_onboarded YES \
+              -pinned_zones "<$PINNED_HEX>"
+            sleep 15
+            xcrun simctl io "$udid" screenshot "shots/$name.png"
+          }
+
+          run_device() {
+            local label=$1
+            shift
+            local udid
+            udid=$(pick_device "$@")
+            if [ -z "$udid" ]; then
+              echo "No simulator found for $label"
+              return
+            fi
+            xcrun simctl boot "$udid"
+            xcrun simctl bootstatus "$udid"
+            xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100
+            xcrun simctl install "$udid" "$APP_PATH"
+            seed_prefs "$udid"
+
+            xcrun simctl ui "$udid" appearance light
+            shoot "$udid" "$label-home-light" 0
+            shoot "$udid" "$label-map-light" 1
+            shoot "$udid" "$label-search-light" 2
+            shoot "$udid" "$label-settings-light" 3
+
+            xcrun simctl ui "$udid" appearance dark
+            shoot "$udid" "$label-home-dark" 0
+            shoot "$udid" "$label-search-dark" 2
+
+            xcrun simctl ui "$udid" content_size accessibility-extra-large
+            shoot "$udid" "$label-home-dark-largetext" 0
+            xcrun simctl ui "$udid" content_size large
+
+            xcrun simctl shutdown "$udid"
+          }
+
+          run_device ipad "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad"
+          run_device iphone "iPhone 17 Pro Max" "iPhone 16 Pro Max" "iPhone"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.run_number }}
+          path: shots
+          retention-days: 14

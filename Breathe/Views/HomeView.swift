@@ -309,10 +309,14 @@ struct HomeView: View {
                         }
                         cigarettesCard(cigarettes: cigarettes)
                     }
-                } GridRow {
+                }
+                
+                GridRow {
                     concentrationsSection(concentrations: response.concentrations)
                     nodesSection(nodes: response.nodes)
-                } GridRow {
+                }
+                
+                GridRow {
                     VStack(alignment: .leading, spacing: 10) {
                         historySection(history: response.history,
                                        nodes: response.nodes,

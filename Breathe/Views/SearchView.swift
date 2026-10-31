@@ -256,10 +256,6 @@ struct SearchView: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color(.systemFill).opacity(0.4))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(isPinned ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
             .opacity(isPinned ? 1 : 0.85)
         }
         .buttonStyle(.plain)

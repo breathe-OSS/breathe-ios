@@ -37,7 +37,7 @@ struct HomeView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     @Environment(\.colorScheme) var colorScheme
-    @Environment(\.horizontalSizeClass) private var sizeClass
+      @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var historyPage = 0
     @State private var showReorderSheet = false
     @AppStorage("pinnedOverview") private var pinnedOverview = false
@@ -278,15 +278,20 @@ struct HomeView: View {
             proxy.scrollTo(zone.id, anchor: .center)
         }
     }
-
     @ViewBuilder
     private func aqiSection(aqi: Int, response: AqiResponse) -> some View {
-        let position = min(max(Double(aqi) / 500.0, 0), 1)
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
         // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
         // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
+        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
+    }
+    @ViewBuilder
+    private func dashboardLayout(aqi: Int, response: AqiResponse, isAirGradient: Bool) -> some View {
+        let position = min(max(Double(aqi) / 500.0, 0), 1)
         let pm25Instant = response.concentrations?["pm2.5"]
             ?? response.concentrations?["pm2_5"]
             ?? 0.0
@@ -294,18 +299,45 @@ struct HomeView: View {
             ?? response.averages24h?["pm2.5"]
             ?? pm25Instant
         let cigarettes = calculateCigarettes(pm25: pm25)
-
-        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
-        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
-        aqiCard(aqi: aqi, response: response)
-        setGaugeSpectrum(position: position)
-        if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            WeatherContextCard(weather: weather)
+        if sizeClass == .regular {
+            Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
+                GridRow {
+                    aqiCard(aqi: aqi, response: response)
+                    VStack {
+                        setGaugeSpectrum(position: position)
+                        if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                          WeatherContextCard(weather: weather)
+                        }
+                        cigarettesCard(cigarettes: cigarettes)
+                    }
+                }
+                
+                GridRow {
+                
+                    concentrationsSection(concentrations: response.concentrations)
+                    nodesSection(nodes: response.nodes)
+                }
+                
+                GridRow {
+                    VStack(alignment: .leading, spacing: 10) {
+                        historySection(history: response.history,
+                                       nodes: response.nodes,
+                                       isAirGradient: isAirGradient)
+                    }
+                    .gridCellColumns(2)
+                }
+            }
+        } else {
+            aqiCard(aqi: aqi, response: response)
+            setGaugeSpectrum(position: position)
+            if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+              WeatherContextCard(weather: weather)
+            }
+            cigarettesCard(cigarettes: cigarettes)
+            concentrationsSection(concentrations: response.concentrations)
+            nodesSection(nodes: response.nodes)
+            historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
         }
-        cigarettesCard(cigarettes: cigarettes)
-        concentrationsSection(concentrations: response.concentrations)
-        nodesSection(nodes: response.nodes)
-        historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
     }
 
     @ViewBuilder

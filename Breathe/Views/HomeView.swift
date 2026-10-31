@@ -313,8 +313,10 @@ struct HomeView: View {
                 }
                 
                 GridRow {
-                    concentrationsSection(concentrations: response.concentrations)
-                    nodesSection(nodes: response.nodes)
+                    VStack{
+                        concentrationsSection(concentrations: response.concentrations)
+                        nodesSection(nodes: response.nodes)
+                    }
                 }
                 
                 GridRow {

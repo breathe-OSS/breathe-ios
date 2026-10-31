@@ -26,15 +26,7 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO \
-            build          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          IOS_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 }}
-        run: |
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          
-          # Main App Profile
-          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > app_profile.mobileprovision
-          APP_PLIST=$(security cms -D -i app_profile.mobileprovision)
-          APP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$APP_PLIST")
+            build          APP_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$APP_PLIST")
           APP_NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$APP_PLIST")
           cp app_profile.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$APP_UUID.mobileprovision"
           printf 'APP_PROFILE_NAME=%s\n' "$APP_NAME" >> "$GITHUB_ENV"

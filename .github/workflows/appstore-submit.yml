@@ -27,6 +27,9 @@ on:
         description: Skip uploading screenshots
         type: boolean
         default: false
+      wait_tries:
+        description: Number of 30 second checks for build processing
+        default: "60"
 
 jobs:
   submit:
@@ -102,7 +105,7 @@ jobs:
             )
             app = Spaceship::ConnectAPI::App.find("com.sidharthify.BreatheOSS")
             ready = false
-            60.times do
+            Integer(ENV.fetch("WAIT_TRIES", "60")).times do
               builds = app.get_builds(includes: "preReleaseVersion", sort: "-uploadedDate", limit: 5)
               builds.each do |b|
                 UI.message("#{b.app_version} (#{b.version}) #{b.processing_state}")
@@ -118,10 +121,22 @@ jobs:
               end
               sleep 30
             end
-            UI.user_error!("Build #{ENV["BUILD"]} never became ready") unless ready
+            unless ready
+              uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{app.id}/buildUploads?limit=5&sort=-uploadedDate")
+              req = Net::HTTP::Get.new(uri)
+              req["Authorization"] = "Bearer #{Spaceship::ConnectAPI.token.text}"
+              res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(req) }
+              UI.message("buildUploads #{res.code}")
+              (JSON.parse(res.body)["data"] || []).each do |u|
+                a = u["attributes"]
+                UI.message("#{a["cfBundleShortVersionString"]} (#{a["cfBundleVersion"]}) #{JSON.generate(a["state"])}")
+              end
+              UI.message(res.body) unless res.code == "200"
+              UI.user_error!("Build #{ENV["BUILD"]} never became ready")
+            end
           end
           RUBY
-          KEY_PATH="$RUNNER_TEMP/asc_key.json" fastlane wait_for_build
+          WAIT_TRIES=${{ inputs.wait_tries }} KEY_PATH="$RUNNER_TEMP/asc_key.json" fastlane wait_for_build
 
       - name: Upload and submit
         env:

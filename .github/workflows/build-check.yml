@@ -19,4 +19,17 @@ jobs:
           xcodebuild -version
 
       - name: Build (no signing)
-        run: xcodebuild -project Breathe.xcodeproj -scheme Breathe -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO PROVISIONING_PROFILE_SPECIFIER= build
+        run: xcodebuild -project Breathe.xcodeproj -scheme Breathe -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO PROVISIONING_PROFILE_SPECIFIER= build
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p ipa/Payload
+          cp -R build/Build/Products/Release-iphoneos/BreatheOSS.app ipa/Payload/
+          cd ipa && zip -qr ../BreatheOSS-unsigned.ipa Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BreatheOSS-unsigned
+          path: BreatheOSS-unsigned.ipa
+          retention-days: 7

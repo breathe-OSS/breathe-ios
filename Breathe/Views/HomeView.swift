@@ -287,6 +287,7 @@ struct HomeView: View {
         // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
         aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
     }
     @ViewBuilder
     private func dashboardLayout(aqi: Int, response: AqiResponse, isAirGradient: Bool) -> some View {

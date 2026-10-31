@@ -284,7 +284,8 @@ struct HomeView: View {
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-
+        // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
+        // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
         aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
@@ -305,28 +306,34 @@ struct HomeView: View {
             Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
                 GridRow {
                     aqiCard(aqi: aqi, response: response)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .frame(maxHeight: .infinity, alignment: .top)
 
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(spacing: 16) {
                         setGaugeSpectrum(position: position)
-                        if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            .squircleCard()
+
+                        if let weather = response.weather,
+                           !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             WeatherContextCard(weather: weather)
+                                .squircleCard()
                         }
+
                         cigarettesCard(cigarettes: cigarettes)
+                            .squircleCard()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
 
                 GridRow {
                     VStack(alignment: .leading, spacing: 10) {
                         concentrationsSection(concentrations: response.concentrations)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxHeight: .infinity, alignment: .top)
 
                     VStack(alignment: .leading, spacing: 10) {
                         nodesSection(nodes: response.nodes)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
 
                 GridRow {
@@ -335,15 +342,18 @@ struct HomeView: View {
                                        nodes: response.nodes,
                                        isAirGradient: isAirGradient)
                     }
-                    .frame(maxWidth: .infinity, alignment: .top)
                     .gridCellColumns(2)
                 }
             }
         } else {
             aqiCard(aqi: aqi, response: response)
             setGaugeSpectrum(position: position)
-            if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                .padding(.top, 10)
+                .padding(.bottom, 40)
+            if let weather = response.weather,
+               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 WeatherContextCard(weather: weather)
+                    .padding(.bottom, 12)
             }
             cigarettesCard(cigarettes: cigarettes)
             concentrationsSection(concentrations: response.concentrations)
@@ -448,7 +458,7 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
 
                     if let pollutant = viewModel.displayPollutant {
-                        Text(formatPollutant(pollutant))
+                        PollutantLabel(raw: pollutant)
                             .font(.system(.title, design: .rounded))
                             .fontWeight(.bold)
                             .foregroundStyle(.primary)
@@ -492,12 +502,13 @@ struct HomeView: View {
             }
         }
         .padding(22)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 28)
                 .fill(aqiColor(aqi).opacity(0.15))
         )
+        .padding(.vertical, 6)
         .animation(animationsEnabled ? .snappy : .none, value: aqi)
+        .padding(.bottom, 6)
     }
 
     @ViewBuilder
@@ -543,12 +554,17 @@ struct HomeView: View {
                 .font(.system(.title, design: .rounded))
                 .fontWeight(.semibold)
                 .padding(.top, 10)
-
-            let sortedNodes = nodes.sorted { $0.key < $1.key }
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(sortedNodes, id: \.key) { key, value in
-                    NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
+            
+            VStack(spacing: 8) {
+                // Determine layout: paired down similar to DashboardComponents.kt
+                let sortedNodes = nodes.sorted { $0.key < $1.key }
+                
+                // Group by 2 for a compact grid or just a VStack
+                // In iOS, a LazyVGrid with 2 columns or simply a VStack works.
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    ForEach(sortedNodes, id: \.key) { key, value in
+                        NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
+                    }
                 }
             }
         }
@@ -568,6 +584,7 @@ struct HomeView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 300)
             .padding(.vertical, 10)
+            .padding(.horizontal, -8)
 
             HStack(spacing: 8) {
                 ForEach(0..<2, id: \.self) { index in
@@ -585,6 +602,8 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 2)
 
+            // Extended History is backed by AirGradient ground sensor data, so it is
+            // redundant on Open-Meteo only zones.
             if isAirGradient {
                 NavigationLink {
                     ExtendedHistoryView(
@@ -624,9 +643,8 @@ struct HomeView: View {
                         .fill(Color(.systemFill).opacity(0.4))
 
                     HStack {
-                        Text(formatPollutant(key))
-                            .font(.system(.subheadline, design: .rounded))
-                            .fontWeight(.semibold)
+                        PollutantLabel(raw: key)
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
                             .foregroundStyle(.primary.opacity(0.6))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
@@ -660,7 +678,8 @@ struct HomeView: View {
         }
         .animation(animationsEnabled ? .easeInOut : .none, value: concentrations.count)
     }
-
+    
+    // MARK: - Spectrum Helper
     @ViewBuilder
     private func setGaugeSpectrum(position: Double) -> some View {
         ZStack(alignment: .leading) {
@@ -668,28 +687,28 @@ struct HomeView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(
                         LinearGradient(stops: [
-                            .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),
-                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),
-                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),
-                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),
-                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),
-                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)
+                            .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),      // Good
+                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),   // Moderate
+                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),   // Sensitive
+                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),     // Unhealthy
+                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),  // Very Unhealthy
+                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)     // Hazardous
                         ], startPoint: .leading, endPoint: .trailing)
                     )
                     .frame(height: 8)
                     .padding(.horizontal, 5)
             } else {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(stops: [
-                            .init(color: Color(red: 0/255, green: 176/255, blue: 80/255), location: 0.0),
-                            .init(color: Color(red: 146/255, green: 208/255, blue: 80/255), location: 0.10),
-                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.20),
-                            .init(color: Color(red: 244/255, green: 145/255, blue: 28/255), location: 0.40),
-                            .init(color: Color(red: 233/255, green: 63/255, blue: 51/255), location: 0.60),
-                            .init(color: Color(red: 175/255, green: 45/255, blue: 36/255), location: 0.80)
-                        ], startPoint: .leading, endPoint: .trailing)
-                    )
+                .fill(
+                    LinearGradient(stops: [
+                        .init(color: Color(red: 0/255, green: 176/255, blue: 80/255), location: 0.0),      // Good
+                        .init(color: Color(red: 146/255, green: 208/255, blue: 80/255), location: 0.10),   // Satisfactory
+                        .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.20),   // Moderate
+                        .init(color: Color(red: 244/255, green: 145/255, blue: 28/255), location: 0.40),   // Poor
+                        .init(color: Color(red: 233/255, green: 63/255, blue: 51/255), location: 0.60),    // Very Poor
+                        .init(color: Color(red: 175/255, green: 45/255, blue: 36/255), location: 0.80)     // Severe
+                    ], startPoint: .leading, endPoint: .trailing)
+                )
                     .frame(height: 8)
                     .padding(.horizontal, 5)
             }
@@ -706,17 +725,16 @@ struct HomeView: View {
             }
             .frame(height: 16)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 24)
     }
 
+    // MARK: - Subviews & Formatting Logic
     @ViewBuilder
     private func trendItem(label: String, value: Int) -> some View {
         HStack(spacing: 6) {
             Text("\(label) Trend:")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.secondary)
-
+            
             HStack(spacing: 2) {
                 Image(systemName: value == 0 ? "minus" : (value > 0 ? "arrow.up.right" : "arrow.down.right"))
                 Text("\(abs(value))")
@@ -759,7 +777,7 @@ struct HomeView: View {
 
     private func aqiDisplayTextColor(_ value: Int) -> Color {
         if colorScheme == .light && isModerateAqi(value) {
-            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0)
+            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
         }
         return aqiColor(value)
     }
@@ -771,7 +789,7 @@ struct HomeView: View {
             return value < 201 ? .black : .white
         }
     }
-
+    
     private func aqiLabel(_ value: Int) -> String {
         switch value {
         case ..<51:  return "Good"
@@ -782,27 +800,49 @@ struct HomeView: View {
         default:     return "Hazardous"
         }
     }
+}
 
-    private func formatPollutant(_ raw: String) -> AttributedString {
+extension View {
+    func squircleCard() -> some View {
+        self
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+            )
+    }
+}
+
+struct PollutantLabel: View {
+    let raw: String
+    @ScaledMetric(relativeTo: .caption2) private var pmOffset: CGFloat = -1
+    @ScaledMetric(relativeTo: .caption2) private var digitOffset: CGFloat = -2
+
+    private var subscriptFont: Font {
+        .system(.caption2, design: .rounded).weight(.semibold)
+    }
+
+    var body: some View {
+        Text(formatted)
+    }
+
+    private var formatted: AttributedString {
         let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
-        let pmSubscriptOffset: CGFloat = -1
-        let pmSubscriptFontSize: CGFloat = 10
-        let digitOffset: CGFloat = -2
-        let digitFontSize: CGFloat = 10
         var result = AttributedString()
 
         if input == "pm2.5" || input == "pm25" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("2.5")
-            sub.baselineOffset = pmSubscriptOffset
-            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
+            sub.baselineOffset = pmOffset
+            sub.font = subscriptFont
             result.append(sub)
             return result
         } else if input == "pm10" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("10")
-            sub.baselineOffset = pmSubscriptOffset
-            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
+            sub.baselineOffset = pmOffset
+            sub.font = subscriptFont
             result.append(sub)
             return result
         }
@@ -811,7 +851,7 @@ struct HomeView: View {
             if char.isNumber || char == "." {
                 var sub = AttributedString(String(char))
                 sub.baselineOffset = digitOffset
-                sub.font = .system(size: digitFontSize, weight: .semibold, design: .rounded)
+                sub.font = subscriptFont
                 result.append(sub)
             } else {
                 result.append(AttributedString(String(char)))
@@ -856,10 +896,11 @@ struct WeatherContextCard: View {
     }
 }
 
+// MARK: - Helper Views
 struct ProviderLogo: View {
     let name: String
     let height: CGFloat
-
+    
     var body: some View {
         if let path = Bundle.main.path(forResource: name, ofType: "png") {
 #if os(iOS)

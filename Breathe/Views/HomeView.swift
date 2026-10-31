@@ -235,35 +235,34 @@ struct HomeView: View {
     @ViewBuilder
     private func pinnedChipsSection() -> some View {
         ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
                     ForEach(viewModel.pinnedZones) { zone in
-                        PinnedZoneChip(
-                            zone: zone,
-                            isSelected: zone.id == viewModel.selectedZone?.id,
-                            animationsEnabled: animationsEnabled
-                        ) {
-                            selectZone(zone, proxy: proxy)
-                        }
-                        .id(zone.id)
+                        pinnedChip(zone, proxy: proxy)
                     }
                 }
-                .padding(.horizontal, 6)
+                .padding(.horizontal)
                 .padding(.vertical, 4)
-                .padding(.bottom, 10)
             }
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.05),
-                        .init(color: .black, location: 0.95),
-                        .init(color: .clear, location: 1)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedChip(_ zone: Zone, proxy: ScrollViewProxy) -> some View {
+        let isSelected = zone.id == viewModel.selectedZone?.id
+        let action = { selectZone(zone, proxy: proxy) }
+
+        if isSelected {
+            Button(zone.name, action: action)
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .id(zone.id)
+        } else {
+            Button(zone.name, action: action)
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .id(zone.id)
         }
     }
 
@@ -458,9 +457,7 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
 
                     if let pollutant = viewModel.displayPollutant {
-                        PollutantLabel(raw: pollutant)
-                            .font(.system(.title, design: .rounded))
-                            .fontWeight(.bold)
+                        PollutantLabel(raw: pollutant, style: .title, weight: .bold)
                             .foregroundStyle(.primary)
                     }
                 }
@@ -643,8 +640,7 @@ struct HomeView: View {
                         .fill(Color(.systemFill).opacity(0.4))
 
                     HStack {
-                        PollutantLabel(raw: key)
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        PollutantLabel(raw: key, style: .headline)
                             .foregroundStyle(.primary.opacity(0.6))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
@@ -657,7 +653,7 @@ struct HomeView: View {
 
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(String(format: "%.2f", value))
-                                .font(.system(.title2, design: .rounded))
+                                .font(.system(.title, design: .rounded))
                                 .fontWeight(.bold)
                                 .monospacedDigit()
                                 .foregroundStyle(.primary)
@@ -665,13 +661,13 @@ struct HomeView: View {
                             let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
 
                             Text(unit)
-                                .font(.system(.caption2, design: .rounded))
+                                .font(.system(.footnote, design: .rounded))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .padding()
                 }
-                .aspectRatio(16/6.5, contentMode: .fit)
+                .frame(maxWidth: .infinity, minHeight: 72)
                 .onTapGesture { }
                 .padding(.bottom, 6)
             }
@@ -816,33 +812,44 @@ extension View {
 
 struct PollutantLabel: View {
     let raw: String
-    @ScaledMetric(relativeTo: .caption2) private var pmOffset: CGFloat = -1
-    @ScaledMetric(relativeTo: .caption2) private var digitOffset: CGFloat = -2
+    var style: Font.TextStyle = .subheadline
+    var weight: Font.Weight = .semibold
+    @ScaledMetric(relativeTo: .caption) private var baselineShift: CGFloat = -1
+    @ScaledMetric(relativeTo: .caption) private var digitShift: CGFloat = -2
 
-    private var subscriptFont: Font {
-        .system(.caption2, design: .rounded).weight(.semibold)
+    private var subscriptStyle: Font.TextStyle {
+        switch style {
+        case .largeTitle, .title: return .title2
+        case .title2: return .title3
+        case .title3: return .headline
+        case .headline: return .subheadline
+        case .subheadline: return .footnote
+        default: return .caption
+        }
     }
 
     var body: some View {
         Text(formatted)
+            .font(.system(style, design: .rounded).weight(weight))
     }
 
     private var formatted: AttributedString {
         let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
+        let subFont = Font.system(subscriptStyle, design: .rounded).weight(weight)
         var result = AttributedString()
 
         if input == "pm2.5" || input == "pm25" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("2.5")
-            sub.baselineOffset = pmOffset
-            sub.font = subscriptFont
+            sub.baselineOffset = baselineShift
+            sub.font = subFont
             result.append(sub)
             return result
         } else if input == "pm10" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("10")
-            sub.baselineOffset = pmOffset
-            sub.font = subscriptFont
+            sub.baselineOffset = baselineShift
+            sub.font = subFont
             result.append(sub)
             return result
         }
@@ -850,8 +857,8 @@ struct PollutantLabel: View {
         for char in raw.uppercased() {
             if char.isNumber || char == "." {
                 var sub = AttributedString(String(char))
-                sub.baselineOffset = digitOffset
-                sub.font = subscriptFont
+                sub.baselineOffset = digitShift
+                sub.font = subFont
                 result.append(sub)
             } else {
                 result.append(AttributedString(String(char)))
@@ -919,41 +926,6 @@ struct ProviderLogo: View {
             }
 #endif
         }
-    }
-}
-
-struct PinnedZoneChip: View {
-    let zone: Zone
-    let isSelected: Bool
-    let animationsEnabled: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        Text(zone.name)
-            .font(.system(.body, design: .rounded))
-            .fontWeight(.semibold)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? Color.accentColor : chipBackground)
-            )
-            .foregroundStyle(isSelected ? .white : .primary)
-            .scaleEffect(isSelected ? 1.05 : 1)
-            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: isSelected)
-            .onTapGesture {
-                onSelect()
-            }
-    }
-
-    private var chipBackground: Color {
-#if os(iOS)
-        return Color(.tertiaryLabel).opacity(0.35)
-#elseif os(macOS)
-        return Color(nsColor: .tertiaryLabelColor).opacity(0.35)
-#else
-        return Color.gray.opacity(0.35)
-#endif
     }
 }
 

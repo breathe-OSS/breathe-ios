@@ -26,35 +26,55 @@
  */
 
 import SwiftUI
-struct SearchView: View {
-@EnvironmentObject private var viewModel: BreatheViewModel
-@State private var searchText = ""
 
-var filteredZones: [Zone] {
-    if searchText.isEmpty {
-        return viewModel.zones
-    } else {
-        return viewModel.zones.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
+struct SearchView: View {
+    @EnvironmentObject private var viewModel: BreatheViewModel
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var searchText = ""
+
+    private let threeColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+
+    private var filteredZones: [Zone] {
+        if searchText.isEmpty {
+            return viewModel.zones
+        } else {
+            return viewModel.zones.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText)
+            }
         }
     }
-}
 
-var body: some View {
+    private var liveZones: [Zone] {
+        filteredZones.filter { isLive($0) }
+    }
 
-    NavigationStack {
+    private var modelZones: [Zone] {
+        filteredZones.filter { !isLive($0) }
+    }
 
+    var body: some View {
+        NavigationStack {
+            Group {
+                if sizeClass == .regular {
+                    gridContent
+                } else {
+                    listContent
+                }
+            }
+            .navigationTitle("Search & Pin Zones")
+            .searchable(text: $searchText, prompt: "Search locations...")
+            .refreshable {
+                await viewModel.loadZones()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var listContent: some View {
         List {
-
             if viewModel.isLoading && viewModel.zones.isEmpty {
-
                 ProgressView("Loading zones...")
-
             } else {
-
-                let liveZones = filteredZones.filter { isLive($0) }
-                let modelZones = filteredZones.filter { !isLive($0) }
-
                 if !liveZones.isEmpty {
                     Section {
                         ForEach(liveZones) { zone in
@@ -77,97 +97,172 @@ var body: some View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Search & Pin Zones")
-        .searchable(text: $searchText, prompt: "Search locations...")
-        .refreshable {
-            await viewModel.loadZones()
-        }
     }
-}
 
-private func isLive(_ zone: Zone) -> Bool {
-    zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
-}
+    @ViewBuilder
+    private var gridContent: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 28) {
+                if viewModel.isLoading && viewModel.zones.isEmpty {
+                    ProgressView("Loading zones...")
+                        .frame(maxWidth: .infinity)
+                } else {
+                    if !liveZones.isEmpty {
+                        zoneGridSection(
+                            title: "Live Ground Sensors",
+                            subtitle: "Real-time readings from AirGradient sensors",
+                            zones: liveZones
+                        )
+                    }
 
-private func sectionHeader(title: String, subtitle: String) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-        Text(title)
-            .font(.system(.subheadline, design: .rounded))
-            .fontWeight(.bold)
-            .foregroundStyle(Color.accentColor)
-            .textCase(nil)
-
-        Text(subtitle)
-            .font(.system(.caption, design: .rounded))
-            .foregroundStyle(.secondary)
-            .textCase(nil)
-    }
-}
-
-@ViewBuilder
-private func zoneRow(_ zone: Zone) -> some View {
-    let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
-
-    Button {
-
-        viewModel.togglePin(for: zone)
-
-    } label: {
-
-        HStack(spacing: 12) {
-
-            Image(systemName: "location.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 2) {
-
-                Text(zone.name)
-                    .font(.system(.body, design: .rounded))
-                    .fontWeight(.semibold)
-
-                if let provider = zone.provider {
-
-                    if provider.localizedCaseInsensitiveContains("airgradient") {
-
-                        HStack(spacing: 4) {
-
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 6, height: 6)
-
-                            Text("Live Ground Sensors")
-                                .font(.system(.caption, design: .rounded))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo") {
-
-                        Text("Satellite & Model Data")
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    } else {
-
-                        Text(provider)
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundStyle(.secondary)
+                    if !modelZones.isEmpty {
+                        zoneGridSection(
+                            title: "Satellite & Model Data",
+                            subtitle: "Ground sensors coming soon",
+                            zones: modelZones
+                        )
                     }
                 }
             }
-
-            Spacer()
-
-            Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20))
-                .foregroundStyle(
-                    isPinned
-                    ? Color.accentColor
-                    : Color.secondary.opacity(0.5)
-                )
+            .padding(20)
         }
-        .padding(.vertical, 12)
-        .opacity(isPinned ? 1 : 0.85)
     }
-    .buttonStyle(.plain)
-    .animation(.easeInOut(duration: 0.15), value: isPinned)
-}
+
+    @ViewBuilder
+    private func zoneGridSection(title: String, subtitle: String, zones: [Zone]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(title: title, subtitle: subtitle)
+
+            LazyVGrid(columns: threeColumns, spacing: 12) {
+                ForEach(zones) { zone in
+                    zoneTile(zone)
+                }
+            }
+        }
+    }
+
+    private func isLive(_ zone: Zone) -> Bool {
+        zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
+    }
+
+    private func sectionHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(.subheadline, design: .rounded))
+                .fontWeight(.bold)
+                .foregroundStyle(Color.accentColor)
+                .textCase(nil)
+
+            Text(subtitle)
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.secondary)
+                .textCase(nil)
+        }
+    }
+
+    @ViewBuilder
+    private func providerLabel(_ provider: String?) -> some View {
+        if let provider {
+            if provider.localizedCaseInsensitiveContains("airgradient") {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+
+                    Text("Live Ground Sensors")
+                }
+            } else if provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo") {
+                Text("Satellite & Model Data")
+            } else {
+                Text(provider)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func zoneRow(_ zone: Zone) -> some View {
+        let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
+
+        Button {
+            viewModel.togglePin(for: zone)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(zone.name)
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.semibold)
+
+                    providerLabel(zone.provider)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(
+                        isPinned
+                        ? Color.accentColor
+                        : Color.secondary.opacity(0.5)
+                    )
+            }
+            .padding(.vertical, 12)
+            .opacity(isPinned ? 1 : 0.85)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isPinned)
+    }
+
+    @ViewBuilder
+    private func zoneTile(_ zone: Zone) -> some View {
+        let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
+
+        Button {
+            viewModel.togglePin(for: zone)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    Image(systemName: "location.fill")
+                        .font(.system(.footnote))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
+                        .font(.system(.title3))
+                        .foregroundStyle(isPinned ? Color.accentColor : Color.secondary.opacity(0.5))
+                }
+
+                Text(zone.name)
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.semibold)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+
+                Spacer(minLength: 0)
+
+                providerLabel(zone.provider)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(.systemFill).opacity(0.4))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(isPinned ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+            .opacity(isPinned ? 1 : 0.85)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isPinned)
+    }
 }

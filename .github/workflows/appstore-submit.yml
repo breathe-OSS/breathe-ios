@@ -1,0 +1,109 @@
+name: App Store Submit
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Marketing version already in App Store Connect
+        required: true
+      build:
+        description: Build number to submit
+        required: true
+      release_notes:
+        description: What's New text
+        required: true
+      screenshots_run_id:
+        description: Run ID of the iPad Landscape Screenshots workflow
+        required: true
+      screenshots:
+        description: Comma separated screenshot names from that run, in display order
+        required: true
+        default: home-light,home-dark,search-light,search-dark,settings-light
+      locale:
+        description: App Store locale
+        required: true
+        default: en-US
+
+jobs:
+  submit:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download screenshots
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.screenshots_run_id }}
+          github-token: ${{ github.token }}
+          path: artifact
+
+      - name: Prepare metadata
+        env:
+          LOCALE: ${{ inputs.locale }}
+          SHOTS: ${{ inputs.screenshots }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          mkdir -p "fastlane/screenshots/$LOCALE" "fastlane/metadata/$LOCALE"
+          printf '%s\n' "$RELEASE_NOTES" > "fastlane/metadata/$LOCALE/release_notes.txt"
+          i=1
+          IFS=',' read -ra names <<< "$SHOTS"
+          for name in "${names[@]}"; do
+            src=$(find artifact -name "$name.png" | head -n 1)
+            if [ -z "$src" ]; then
+              echo "Missing screenshot $name"
+              exit 1
+            fi
+            dest="fastlane/screenshots/$LOCALE/$(printf '%02d' "$i")_$name.png"
+            cp "$src" "$dest"
+            width=$(sips -g pixelWidth "$dest" | awk '/pixelWidth/ {print $2}')
+            height=$(sips -g pixelHeight "$dest" | awk '/pixelHeight/ {print $2}')
+            if [ "$height" -gt "$width" ]; then
+              sips -r 90 "$dest"
+            fi
+            i=$((i + 1))
+          done
+          sips -g pixelWidth -g pixelHeight fastlane/screenshots/"$LOCALE"/*.png
+
+      - name: Install fastlane
+        run: |
+          brew install fastlane
+          fastlane --version
+
+      - name: Write API key
+        env:
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          jq -n \
+            --arg key_id "$APPSTORE_KEY_ID" \
+            --arg issuer_id "$APPSTORE_ISSUER_ID" \
+            --arg key "$APPSTORE_PRIVATE_KEY" \
+            '{key_id: $key_id, issuer_id: $issuer_id, key: $key, in_house: false}' > "$RUNNER_TEMP/asc_key.json"
+
+      - name: Upload and submit
+        env:
+          VERSION: ${{ inputs.version }}
+          BUILD: ${{ inputs.build }}
+        run: |
+          fastlane deliver \
+            --api_key_path "$RUNNER_TEMP/asc_key.json" \
+            --app_identifier com.sidharthify.BreatheOSS \
+            --platform ios \
+            --app_version "$VERSION" \
+            --build_number "$BUILD" \
+            --skip_binary_upload true \
+            --metadata_path fastlane/metadata \
+            --screenshots_path fastlane/screenshots \
+            --overwrite_screenshots false \
+            --run_precheck_before_submit false \
+            --submit_for_review true \
+            --automatic_release true \
+            --force true \
+            --submission_information '{"add_id_info_uses_idfa": false, "export_compliance_uses_encryption": false, "content_rights_contains_third_party_content": false}'
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc_key.json"

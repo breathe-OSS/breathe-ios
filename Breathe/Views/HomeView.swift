@@ -241,10 +241,22 @@ struct HomeView: View {
                         pinnedChip(zone, proxy: proxy)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 6)
                 .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.05),
+                        .init(color: .black, location: 0.95),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
         }
     }
 
@@ -283,8 +295,6 @@ struct HomeView: View {
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
-        // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
         aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
@@ -293,6 +303,8 @@ struct HomeView: View {
     @ViewBuilder
     private func dashboardLayout(aqi: Int, response: AqiResponse, isAirGradient: Bool) -> some View {
         let position = min(max(Double(aqi) / 500.0, 0), 1)
+        // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
+        // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
         let pm25Instant = response.concentrations?["pm2.5"]
             ?? response.concentrations?["pm2_5"]
             ?? 0.0
@@ -304,8 +316,7 @@ struct HomeView: View {
         if sizeClass == .regular {
             Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
                 GridRow {
-                    aqiCard(aqi: aqi, response: response)
-                        .frame(maxHeight: .infinity, alignment: .top)
+                    aqiCard(aqi: aqi, response: response, fillsHeight: true)
 
                     VStack(spacing: 16) {
                         setGaugeSpectrum(position: position)
@@ -346,6 +357,8 @@ struct HomeView: View {
             }
         } else {
             aqiCard(aqi: aqi, response: response)
+                .padding(.vertical, 6)
+                .padding(.bottom, 6)
             setGaugeSpectrum(position: position)
                 .padding(.top, 10)
                 .padding(.bottom, 40)
@@ -418,7 +431,7 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func aqiCard(aqi: Int, response: AqiResponse) -> some View {
+    private func aqiCard(aqi: Int, response: AqiResponse, fillsHeight: Bool = false) -> some View {
         let aqiTextColor = aqiDisplayTextColor(aqi)
 
         VStack(alignment: .leading, spacing: 14) {
@@ -499,13 +512,12 @@ struct HomeView: View {
             }
         }
         .padding(22)
+        .frame(maxHeight: fillsHeight ? .infinity : nil, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 28)
                 .fill(aqiColor(aqi).opacity(0.15))
         )
-        .padding(.vertical, 6)
         .animation(animationsEnabled ? .snappy : .none, value: aqi)
-        .padding(.bottom, 6)
     }
 
     @ViewBuilder
@@ -819,12 +831,12 @@ struct PollutantLabel: View {
 
     private var subscriptStyle: Font.TextStyle {
         switch style {
-        case .largeTitle, .title: return .title2
-        case .title2: return .title3
-        case .title3: return .headline
-        case .headline: return .subheadline
-        case .subheadline: return .footnote
-        default: return .caption
+        case .largeTitle, .title: return .title3
+        case .title2: return .headline
+        case .title3: return .subheadline
+        case .headline: return .footnote
+        case .subheadline: return .caption
+        default: return .caption2
         }
     }
 

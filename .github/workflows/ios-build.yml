@@ -19,22 +19,7 @@ jobs:
           xcodebuild -version
 
       - name: Build (no signing)
-        run: |
-          xcodebuild \
-            -project Breathe.xcodeproj \
-            -scheme Breathe \
-            -configuration Debug \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            build          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>$EXPORT_METHOD</string>
-            <key>signingStyle</key>
-            <string>manual</string>
+        run: xcodebuild -project Breathe.xcodeproj -scheme Breathe -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO PROVISIONING_PROFILE_SPECIFIER= build            <string>manual</string>
             <key>teamID</key>
             <string>$TEAM_ID</string>
             <key>provisioningProfiles</key>

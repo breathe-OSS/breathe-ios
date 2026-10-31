@@ -26,6 +26,127 @@
  */
 
 import SwiftUI
+
+struct SearchView: View {
+    @EnvironmentObject private var viewModel: BreatheViewModel
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var searchText = ""
+
+    private let threeColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+
+    private var filteredZones: [Zone] {
+        if searchText.isEmpty {
+            return viewModel.zones
+        } else {
+            return viewModel.zones.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
+    private var liveZones: [Zone] {
+        filteredZones.filter { isLive($0) }
+    }
+
+    private var modelZones: [Zone] {
+        filteredZones.filter { !isLive($0) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if sizeClass == .regular {
+                    gridContent
+                } else {
+                    listContent
+                }
+            }
+            .navigationTitle("Search & Pin Zones")
+            .searchable(text: $searchText, prompt: "Search locations...")
+            .refreshable {
+                await viewModel.loadZones()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var listContent: some View {
+        List {
+            if viewModel.isLoading && viewModel.zones.isEmpty {
+                ProgressView("Loading zones...")
+            } else {
+                if !liveZones.isEmpty {
+                    Section {
+                        ForEach(liveZones) { zone in
+                            zoneRow(zone)
+                        }
+                    } header: {
+                        sectionHeader(title: "Live Ground Sensors", subtitle: "Real-time readings from AirGradient sensors")
+                    }
+                }
+
+                if !modelZones.isEmpty {
+                    Section {
+                        ForEach(modelZones) { zone in
+                            zoneRow(zone)
+                        }
+                    } header: {
+                        sectionHeader(title: "Satellite & Model Data", subtitle: "Ground sensors coming soon")
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var gridContent: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 28) {
+                if viewModel.isLoading && viewModel.zones.isEmpty {
+                    ProgressView("Loading zones...")
+                        .frame(maxWidth: .infinity)
+                } else {
+                    if !liveZones.isEmpty {
+                        zoneGridSection(
+                            title: "Live Ground Sensors",
+                            subtitle: "Real-time readings from AirGradient sensors",
+                            zones: liveZones
+                        )
+                    }
+
+                    if !modelZones.isEmpty {
+                        zoneGridSection(
+                            title: "Satellite & Model Data",
+                            subtitle: "Ground sensors coming soon",
+                            zones: modelZones// SPDX-License-Identifier: MIT
+/*
+ * SearchView.swift
+ *
+ * Copyright (C) 2026 The Breathe Open Source Project
+ * Copyright (C) 2026 SleeperOfSaturn <sanidhya1998@icloud.com>
+ * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+import SwiftUI
 struct SearchView: View {
 @EnvironmentObject private var viewModel: BreatheViewModel
 @State private var searchText = ""

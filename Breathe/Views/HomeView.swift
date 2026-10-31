@@ -637,7 +637,7 @@ struct HomeView: View {
             ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
                 ZStack {
                     RoundedRectangle(cornerRadius: 18)
-                        .systemFill).opacity(0.4))
+                        .fill(Color(.systemFill).opacity(0.4))
 
                     HStack {
                         PollutantLabel(raw: key, style: .headline)

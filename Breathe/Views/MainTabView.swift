@@ -30,7 +30,11 @@ import SwiftUI
 @available(iOS 17.0, *)
 struct MainTabView: View {
     @AppStorage("animationsEnabled") private var animationsEnabled = true
+#if DEBUG
+    @State private var selectedTab = UserDefaults.standard.integer(forKey: "initialTab")
+#else
     @State private var selectedTab = 0
+#endif
     
     var body: some View {
         TabView(selection: $selectedTab) {

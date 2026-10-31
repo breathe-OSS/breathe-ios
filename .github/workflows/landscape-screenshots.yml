@@ -1,0 +1,118 @@
+name: iPad Landscape Screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+
+    env:
+      BUNDLE_ID: com.sidharthify.BreatheOSS
+      GROUP_ID: group.com.sidharthify.BreatheOSS.BreatheWidget
+      PINNED_ZONES: '["srinagar","jammu_city","leh"]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Build for simulator
+        run: |
+          xcodebuild \
+            -project Breathe.xcodeproj \
+            -scheme Breathe \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            APP_PROFILE_SPECIFIER= \
+            WIDGET_PROFILE_SPECIFIER= \
+            build
+          APP_PATH=$(find build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -n 1)
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Take screenshots
+        run: |
+          set -x
+          mkdir -p shots
+          PINNED_HEX=$(printf '%s' "$PINNED_ZONES" | xxd -p | tr -d '\n')
+          FIRST_ZONE=$(printf '%s' "$PINNED_ZONES" | jq -r '.[0]')
+
+          UDID=""
+          for pattern in "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad"; do
+            UDID=$(xcrun simctl list devices available -j | jq -r --arg p "$pattern" '[.devices[][] | select(.name | startswith($p))][0].udid // empty')
+            if [ -n "$UDID" ]; then
+              break
+            fi
+          done
+
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID"
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --wifiBars 3
+          xcrun simctl install "$UDID" "$APP_PATH"
+
+          dirs=("$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)")
+          group_dir=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" "$GROUP_ID" 2>/dev/null || true)
+          if [ -n "$group_dir" ]; then
+            dirs+=("$group_dir")
+          fi
+          for dir in "${dirs[@]}"; do
+            mkdir -p "$dir/Library/Preferences"
+            plist="$dir/Library/Preferences/$GROUP_ID"
+            defaults write "$plist" has_onboarded -bool YES
+            defaults write "$plist" is_us_aqi -bool YES
+            defaults write "$plist" pinned_zones -data "$PINNED_HEX"
+            defaults write "$plist" selected_zone_id -string "$FIRST_ZONE"
+          done
+
+          open -a Simulator --args -CurrentDeviceUDID "$UDID"
+          sleep 10
+          osascript -e 'tell application "Simulator" to activate'
+          sleep 2
+          osascript -e 'tell application "System Events" to key code 124 using command down'
+          sleep 5
+
+          shoot() {
+            local name=$1 tab=$2
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" \
+              -initialTab "$tab" \
+              -has_onboarded YES \
+              -pinned_zones "<$PINNED_HEX>" \
+              -selected_zone_id "$FIRST_ZONE"
+            sleep 15
+            xcrun simctl io "$UDID" screenshot "shots/$name.png"
+          }
+
+          xcrun simctl ui "$UDID" appearance light
+          shoot home-light 0
+          shoot map-light 1
+          shoot search-light 2
+          shoot settings-light 3
+
+          xcrun simctl ui "$UDID" appearance dark
+          shoot home-dark 0
+          shoot map-dark 1
+          shoot search-dark 2
+          shoot settings-dark 3
+
+          for f in shots/*.png; do
+            sips -r 90 "$f"
+          done
+          sips -g pixelWidth -g pixelHeight shots/*.png
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipad-landscape-${{ github.run_number }}
+          path: shots
+          retention-days: 14

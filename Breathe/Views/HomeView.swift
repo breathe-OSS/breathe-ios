@@ -37,6 +37,7 @@ struct HomeView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var historyPage = 0
     @State private var showReorderSheet = false
     @AppStorage("pinnedOverview") private var pinnedOverview = false
@@ -234,35 +235,34 @@ struct HomeView: View {
     @ViewBuilder
     private func pinnedChipsSection() -> some View {
         ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
                     ForEach(viewModel.pinnedZones) { zone in
-                        PinnedZoneChip(
-                            zone: zone,
-                            isSelected: zone.id == viewModel.selectedZone?.id,
-                            animationsEnabled: animationsEnabled
-                        ) {
-                            selectZone(zone, proxy: proxy)
-                        }
-                        .id(zone.id)
+                        pinnedChip(zone, proxy: proxy)
                     }
                 }
-                .padding(.horizontal, 6)
+                .padding(.horizontal)
                 .padding(.vertical, 4)
-                .padding(.bottom, 10)
             }
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.05),
-                        .init(color: .black, location: 0.95),
-                        .init(color: .clear, location: 1)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedChip(_ zone: Zone, proxy: ScrollViewProxy) -> some View {
+        let isSelected = zone.id == viewModel.selectedZone?.id
+        let action = { selectZone(zone, proxy: proxy) }
+
+        if isSelected {
+            Button(zone.name, action: action)
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .id(zone.id)
+        } else {
+            Button(zone.name, action: action)
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .id(zone.id)
         }
     }
 
@@ -280,12 +280,19 @@ struct HomeView: View {
 
     @ViewBuilder
     private func aqiSection(aqi: Int, response: AqiResponse) -> some View {
-        let position = min(max(Double(aqi) / 500.0, 0), 1)
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
         // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
         // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
+        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
+    }
+
+    @ViewBuilder
+    private func dashboardLayout(aqi: Int, response: AqiResponse, isAirGradient: Bool) -> some View {
+        let position = min(max(Double(aqi) / 500.0, 0), 1)
         let pm25Instant = response.concentrations?["pm2.5"]
             ?? response.concentrations?["pm2_5"]
             ?? 0.0
@@ -294,17 +301,64 @@ struct HomeView: View {
             ?? pm25Instant
         let cigarettes = calculateCigarettes(pm25: pm25)
 
-        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
-        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
-        aqiCard(aqi: aqi, response: response)
-        setGaugeSpectrum(position: position)
-        if let weather = response.weather, !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            WeatherContextCard(weather: weather)
+        if sizeClass == .regular {
+            Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
+                GridRow {
+                    aqiCard(aqi: aqi, response: response)
+                        .frame(maxHeight: .infinity, alignment: .top)
+
+                    VStack(spacing: 16) {
+                        setGaugeSpectrum(position: position)
+                            .squircleCard()
+
+                        if let weather = response.weather,
+                           !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            WeatherContextCard(weather: weather)
+                                .squircleCard()
+                        }
+
+                        cigarettesCard(cigarettes: cigarettes)
+                            .squircleCard()
+                    }
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
+
+                GridRow {
+                    VStack(alignment: .leading, spacing: 10) {
+                        concentrationsSection(concentrations: response.concentrations)
+                    }
+                    .frame(maxHeight: .infinity, alignment: .top)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        nodesSection(nodes: response.nodes)
+                    }
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
+
+                GridRow {
+                    VStack(alignment: .leading, spacing: 10) {
+                        historySection(history: response.history,
+                                       nodes: response.nodes,
+                                       isAirGradient: isAirGradient)
+                    }
+                    .gridCellColumns(2)
+                }
+            }
+        } else {
+            aqiCard(aqi: aqi, response: response)
+            setGaugeSpectrum(position: position)
+                .padding(.top, 10)
+                .padding(.bottom, 40)
+            if let weather = response.weather,
+               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                WeatherContextCard(weather: weather)
+                    .padding(.bottom, 12)
+            }
+            cigarettesCard(cigarettes: cigarettes)
+            concentrationsSection(concentrations: response.concentrations)
+            nodesSection(nodes: response.nodes)
+            historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
         }
-        cigarettesCard(cigarettes: cigarettes)
-        concentrationsSection(concentrations: response.concentrations)
-        nodesSection(nodes: response.nodes)
-        historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
     }
 
     @ViewBuilder
@@ -403,9 +457,7 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
 
                     if let pollutant = viewModel.displayPollutant {
-                        Text(formatPollutant(pollutant))
-                            .font(.system(.title, design: .rounded))
-                            .fontWeight(.bold)
+                        PollutantLabel(raw: pollutant, style: .title, weight: .bold)
                             .foregroundStyle(.primary)
                     }
                 }
@@ -588,9 +640,7 @@ struct HomeView: View {
                         .fill(Color(.systemFill).opacity(0.4))
 
                     HStack {
-                        Text(formatPollutant(key))
-                            .font(.system(.subheadline, design: .rounded))
-                            .fontWeight(.semibold)
+                        PollutantLabel(raw: key, style: .headline)
                             .foregroundStyle(.primary.opacity(0.6))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
@@ -603,7 +653,7 @@ struct HomeView: View {
 
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(String(format: "%.2f", value))
-                                .font(.system(.title2, design: .rounded))
+                                .font(.system(.title, design: .rounded))
                                 .fontWeight(.bold)
                                 .monospacedDigit()
                                 .foregroundStyle(.primary)
@@ -611,13 +661,13 @@ struct HomeView: View {
                             let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
 
                             Text(unit)
-                                .font(.system(.caption2, design: .rounded))
+                                .font(.system(.footnote, design: .rounded))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .padding()
                 }
-                .aspectRatio(16/6.5, contentMode: .fit)
+                .frame(maxWidth: .infinity, minHeight: 72)
                 .onTapGesture { }
                 .padding(.bottom, 6)
             }
@@ -671,8 +721,6 @@ struct HomeView: View {
             }
             .frame(height: 16)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 40)
     }
 
     // MARK: - Subviews & Formatting Logic
@@ -748,27 +796,60 @@ struct HomeView: View {
         default:     return "Hazardous"
         }
     }
-    
-    private func formatPollutant(_ raw: String) -> AttributedString {
+}
+
+extension View {
+    func squircleCard() -> some View {
+        self
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color(.systemFill).opacity(0.4))
+            )
+    }
+}
+
+struct PollutantLabel: View {
+    let raw: String
+    var style: Font.TextStyle = .subheadline
+    var weight: Font.Weight = .semibold
+    @ScaledMetric(relativeTo: .caption) private var baselineShift: CGFloat = -1
+    @ScaledMetric(relativeTo: .caption) private var digitShift: CGFloat = -2
+
+    private var subscriptStyle: Font.TextStyle {
+        switch style {
+        case .largeTitle, .title: return .title2
+        case .title2: return .title3
+        case .title3: return .headline
+        case .headline: return .subheadline
+        case .subheadline: return .footnote
+        default: return .caption
+        }
+    }
+
+    var body: some View {
+        Text(formatted)
+            .font(.system(style, design: .rounded).weight(weight))
+    }
+
+    private var formatted: AttributedString {
         let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
-        let pmSubscriptOffset: CGFloat = -1
-        let pmSubscriptFontSize: CGFloat = 10
-        let digitOffset: CGFloat = -2
-        let digitFontSize: CGFloat = 10
+        let subFont = Font.system(subscriptStyle, design: .rounded).weight(weight)
         var result = AttributedString()
 
         if input == "pm2.5" || input == "pm25" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("2.5")
-            sub.baselineOffset = pmSubscriptOffset
-            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
+            sub.baselineOffset = baselineShift
+            sub.font = subFont
             result.append(sub)
             return result
         } else if input == "pm10" {
             result.append(AttributedString("PM"))
             var sub = AttributedString("10")
-            sub.baselineOffset = pmSubscriptOffset
-            sub.font = .system(size: pmSubscriptFontSize, weight: .semibold, design: .rounded)
+            sub.baselineOffset = baselineShift
+            sub.font = subFont
             result.append(sub)
             return result
         }
@@ -776,8 +857,8 @@ struct HomeView: View {
         for char in raw.uppercased() {
             if char.isNumber || char == "." {
                 var sub = AttributedString(String(char))
-                sub.baselineOffset = digitOffset
-                sub.font = .system(size: digitFontSize, weight: .semibold, design: .rounded)
+                sub.baselineOffset = digitShift
+                sub.font = subFont
                 result.append(sub)
             } else {
                 result.append(AttributedString(String(char)))
@@ -786,8 +867,6 @@ struct HomeView: View {
         return result
     }
 }
-
-// MARK: - Weather Context
 
 struct WeatherContextCard: View {
     let weather: WeatherInfo
@@ -821,7 +900,6 @@ struct WeatherContextCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.bottom, 12)
     }
 }
 
@@ -851,42 +929,6 @@ struct ProviderLogo: View {
     }
 }
 
-struct PinnedZoneChip: View {
-    let zone: Zone
-    let isSelected: Bool
-    let animationsEnabled: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        Text(zone.name)
-            .font(.system(.body, design: .rounded))
-            .fontWeight(.semibold)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? Color.accentColor : chipBackground)
-            )
-            .foregroundStyle(isSelected ? .white : .primary)
-            .scaleEffect(isSelected ? 1.05 : 1)
-            .animation(animationsEnabled ? .easeInOut(duration: 0.15) : .none, value: isSelected)
-            .onTapGesture {
-                onSelect()
-            }
-    }
-
-    private var chipBackground: Color {
-#if os(iOS)
-        return Color(.tertiaryLabel).opacity(0.35)
-#elseif os(macOS)
-        return Color(nsColor: .tertiaryLabelColor).opacity(0.35)
-#else
-        return Color.gray.opacity(0.35)
-#endif
-    }
-}
-
 #Preview {
     HomeView()
 }
-

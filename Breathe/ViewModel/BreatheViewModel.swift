@@ -212,6 +212,20 @@ final class BreatheViewModel: ObservableObject {
     }
     
     func fetchAllAqiData() async {
+        let missing = zones.filter { allAqiData[$0.id] == nil }.map(\.id)
+        guard !missing.isEmpty else {
+            return
+        }
+
+        // one /aqi/zones request when the backend has it. older backends 404,
+        // and then it goes back to asking zone by zone
+        if let bulk = try? await BreatheAPI.shared.getZonesAqi(zoneIds: missing) {
+            for response in bulk {
+                allAqiData[response.zoneId] = response
+            }
+            return
+        }
+
         await withTaskGroup(of: (String, AqiResponse?).self) { group in
             for zone in zones where allAqiData[zone.id] == nil {
                 group.addTask {

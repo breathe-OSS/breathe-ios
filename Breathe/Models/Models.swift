@@ -30,6 +30,10 @@ struct ZonesResponse: Codable {
     let zones: [Zone]
 }
 
+struct ZonesAqiResponse: Codable {
+    let zones: [AqiResponse]
+}
+
 struct Zone: Codable, Identifiable, Hashable {
     let id: String
     let name: String

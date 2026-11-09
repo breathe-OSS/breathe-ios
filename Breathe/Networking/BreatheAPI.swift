@@ -60,6 +60,15 @@ final class BreatheAPI: @unchecked Sendable {
         return try await get(path: "/aqi/zone/\(zoneId)")
     }
 
+    // the same payloads as getZoneAqi in one request, newer backends only
+    func getZonesAqi(zoneIds: [String]) async throws -> [AqiResponse] {
+        let response: ZonesAqiResponse = try await get(
+            path: "/aqi/zones",
+            queryItems: [URLQueryItem(name: "ids", value: zoneIds.joined(separator: ","))]
+        )
+        return response.zones
+    }
+
     func getSensorInfo() async throws -> [SensorInfo] {
         let response: SensorInfoResponse = try await get(path: "/sensor-info")
         return response.sensors

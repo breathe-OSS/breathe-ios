@@ -40,6 +40,7 @@ struct MapBubble: Identifiable {
     enum Target {
         case zone(Zone)
         case sensor(SensorPoint)
+        case cluster([CLLocationCoordinate2D])
     }
 
     let id: String
@@ -51,6 +52,8 @@ struct MapBubble: Identifiable {
     // modelled zones get a dashed ring when they sit among real sensors
     let isModelled: Bool
     let target: Target
+    // how many bubbles were folded into this one, shown as a badge above 1
+    var count: Int = 1
 }
 
 @available(iOS 17.0, *)
@@ -66,6 +69,8 @@ struct MapView: View {
     )
     @State private var layer: MapLayer = .sensors
     @State private var selectedSensor: SensorPoint?
+    @State private var visibleRegion: MKCoordinateRegion?
+    @State private var mapWidth: CGFloat = 390
 
     private var sensorPoints: [SensorPoint] {
         buildSensorPoints(zones: Array(viewModel.allAqiData.values), sensorInfos: viewModel.sensorInfos)
@@ -124,7 +129,7 @@ struct MapView: View {
     var body: some View {
         NavigationStack {
             Map(position: $cameraPosition, interactionModes: .all) {
-                ForEach(bubbles) { bubble in
+                ForEach(clusterBubbles(bubbles, region: visibleRegion, mapWidth: mapWidth)) { bubble in
                     Annotation("", coordinate: bubble.coordinate, anchor: .center) {
                         MapBubbleView(bubble: bubble, isUsAqi: viewModel.isUsAqi)
                             .onTapGesture {
@@ -133,6 +138,18 @@ struct MapView: View {
                     }
                 }
             }
+            .onMapCameraChange(frequency: .onEnd) { context in
+                visibleRegion = context.region
+            }
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { mapWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, width in
+                            mapWidth = width
+                        }
+                }
+            )
             .ignoresSafeArea()
             .navigationTitle("Map")
             .safeAreaInset(edge: .top) {
@@ -191,8 +208,88 @@ struct MapView: View {
         case .sensor(let sensor):
             viewModel.selectedMapZone = nil
             selectedSensor = sensor
+        case .cluster(let coordinates):
+            zoomToFit(coordinates)
         }
     }
+
+    // frames every member with some room around it, which is enough zoom to
+    // pull the group apart
+    private func zoomToFit(_ coordinates: [CLLocationCoordinate2D]) {
+        let lats = coordinates.map(\.latitude)
+        let lons = coordinates.map(\.longitude)
+        guard let minLat = lats.min(), let maxLat = lats.max(),
+              let minLon = lons.min(), let maxLon = lons.max() else {
+            return
+        }
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2),
+            span: MKCoordinateSpan(
+                latitudeDelta: max((maxLat - minLat) * 1.8, 0.05),
+                longitudeDelta: max((maxLon - minLon) * 1.8, 0.05)
+            )
+        )
+        withAnimation(.snappy(duration: 0.5)) {
+            cameraPosition = .region(region)
+        }
+    }
+}
+
+// zoomed out, a dozen Srinagar and Jammu sensors land in the same few points
+// and turn into a pile of half hidden numbers. walking from the worst reading
+// down, each bubble joins the first group whose seed is closer than
+// minDistance on screen, or starts its own. a group shows its worst reading
+// with a count badge. distances are on the web mercator plane MapKit draws
+// on, scaled to the map's width, so panning doesn't change the groups
+func clusterBubbles(
+    _ bubbles: [MapBubble],
+    region: MKCoordinateRegion?,
+    mapWidth: CGFloat,
+    minDistance: CGFloat = 40
+) -> [MapBubble] {
+    guard let region, region.span.longitudeDelta > 0, mapWidth > 0 else {
+        return bubbles
+    }
+    let worldWidth = Double(mapWidth) * 360 / region.span.longitudeDelta
+
+    func toPoint(_ c: CLLocationCoordinate2D) -> CGPoint {
+        let x = (c.longitude + 180) / 360 * worldWidth
+        let latRad = c.latitude * .pi / 180
+        let y = (1 - log(tan(latRad) + 1 / cos(latRad)) / .pi) / 2 * worldWidth
+        return CGPoint(x: x, y: y)
+    }
+
+    var seeds: [CGPoint] = []
+    var groups: [[MapBubble]] = []
+    for bubble in bubbles.sorted(by: { ($0.aqi ?? -1) > ($1.aqi ?? -1) }) {
+        let p = toPoint(bubble.coordinate)
+        if let index = seeds.firstIndex(where: { hypot($0.x - p.x, $0.y - p.y) < minDistance }) {
+            groups[index].append(bubble)
+        } else {
+            seeds.append(p)
+            groups.append([bubble])
+        }
+    }
+
+    let merged: [MapBubble] = groups.map { members in
+        if members.count == 1 {
+            return members[0]
+        }
+        let lat = members.map(\.coordinate.latitude).reduce(0, +) / Double(members.count)
+        let lon = members.map(\.coordinate.longitude).reduce(0, +) / Double(members.count)
+        return MapBubble(
+            id: "cluster/\(members[0].id)",
+            coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+            aqi: members.compactMap(\.aqi).max(),
+            isLoading: members.allSatisfy(\.isLoading),
+            isLive: members.contains(where: \.isLive),
+            isModelled: members.allSatisfy(\.isModelled),
+            target: .cluster(members.map(\.coordinate)),
+            count: members.count
+        )
+    }
+    // MapKit draws later annotations on top, so the worst air wins overlaps
+    return merged.sorted { ($0.aqi ?? -1) < ($1.aqi ?? -1) }
 }
 
 // MARK: - Selected Zone Quick Card
@@ -511,6 +608,15 @@ struct MapBubbleView: View {
                     .frame(width: 12, height: 12)
                     .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
                     .offset(x: 12, y: -12)
+            }
+
+            if bubble.count > 1 {
+                Text("\(bubble.count)")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.black)
+                    .frame(minWidth: 14, minHeight: 14)
+                    .background(Circle().fill(Color.white))
+                    .offset(x: 12, y: 12)
             }
         }
     }

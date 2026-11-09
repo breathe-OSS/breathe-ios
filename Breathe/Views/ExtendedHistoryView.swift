@@ -172,8 +172,10 @@ struct ExtendedHistoryView: View {
     private var rangeSelector: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
-                ForEach([("1w", "1 Week"), ("1mo", "1 Month"), ("6mo", "6 Months")], id: \.0) { key, label in
-                    let isSelected = viewModel.historyState.selectedRange == key && !viewModel.historyState.showCustomInputs
+                ForEach([("1w", "1W"), ("1mo", "1M"), ("6mo", "6M")], id: \.0) { key, label in
+                    let isSelected = viewModel.historyState.selectedRange == key
+                        && !viewModel.historyState.showCustomInputs
+                        && !viewModel.historyState.periodActive
                     Button {
                         viewModel.setHistoryRange(key)
                     } label: {
@@ -188,15 +190,33 @@ struct ExtendedHistoryView: View {
                 }
 
                 Button {
+                    viewModel.showHistoryPeriod()
+                } label: {
+                    Text("Date")
+                        .font(.system(.caption, design: .rounded))
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(viewModel.historyState.periodActive ? .accentColor : .secondary)
+
+                Button {
                     viewModel.toggleHistoryCustomInputs()
                 } label: {
                     Text("Custom")
                         .font(.system(.caption, design: .rounded))
                         .fontWeight(.medium)
+                        .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .tint(viewModel.historyState.showCustomInputs ? .accentColor : .secondary)
+            }
+
+            if viewModel.historyState.periodActive, let period = viewModel.historyState.period {
+                periodPicker(period: period)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             if viewModel.historyState.showCustomInputs {
@@ -230,6 +250,91 @@ struct ExtendedHistoryView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: viewModel.historyState.showCustomInputs)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.historyState.periodActive)
+    }
+
+    @ViewBuilder
+    private func periodPicker(period: HistoryPeriod) -> some View {
+        let mode = viewModel.historyState.periodMode
+        let canStepForward = period.shifted(mode: mode, by: 1).start <= Date()
+
+        VStack(spacing: 12) {
+            Picker("Period", selection: Binding(
+                get: { viewModel.historyState.periodMode },
+                set: { viewModel.setHistoryPeriodMode($0) }
+            )) {
+                ForEach(HistoryPeriodMode.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if mode == .days {
+                HStack {
+                    DatePicker(
+                        "From",
+                        selection: Binding(
+                            get: { period.start },
+                            set: { viewModel.pickHistoryPeriodSpan(from: $0, to: period.end) }
+                        ),
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                    DatePicker(
+                        "To",
+                        selection: Binding(
+                            get: { period.end },
+                            set: { viewModel.pickHistoryPeriodSpan(from: period.start, to: $0) }
+                        ),
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                }
+                .font(.system(.caption, design: .rounded))
+            } else {
+                DatePicker(
+                    mode == .month ? "Month containing" : "Week containing",
+                    selection: Binding(
+                        get: { period.start },
+                        set: { viewModel.pickHistoryPeriodDate($0) }
+                    ),
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+                .font(.system(.subheadline, design: .rounded))
+            }
+
+            HStack {
+                Button {
+                    viewModel.stepHistoryPeriod(by: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .accessibilityLabel("Previous period")
+
+                Spacer()
+
+                Text(period.label(mode: mode))
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+
+                Button {
+                    viewModel.stepHistoryPeriod(by: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .disabled(!canStepForward)
+                .accessibilityLabel("Next period")
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemBackground))
+        )
     }
 
     // MARK: - Weather Filter + Impact
@@ -306,6 +411,12 @@ struct ExtendedHistoryView: View {
             chartPager
         } else if !viewModel.historyState.data.isEmpty {
             Text("No samples for this weather")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.secondary)
+                .padding()
+                .frame(maxWidth: .infinity)
+        } else {
+            Text("No readings for this selection")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(.secondary)
                 .padding()

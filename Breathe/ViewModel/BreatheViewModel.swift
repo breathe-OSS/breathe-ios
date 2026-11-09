@@ -275,6 +275,7 @@ final class BreatheViewModel: ObservableObject {
     @Published var historyState = HistoryState()
 
     private var historyZoneId: String?
+    private var historyFetchTask: Task<Void, Never>?
 
     func openHistory(zoneId: String) {
         historyZoneId = zoneId
@@ -285,11 +286,64 @@ final class BreatheViewModel: ObservableObject {
     func setHistoryRange(_ range: String) {
         historyState.selectedRange = range
         historyState.showCustomInputs = false
+        historyState.periodActive = false
         fetchHistoricalData()
     }
 
     func toggleHistoryCustomInputs() {
         historyState.showCustomInputs.toggle()
+        historyState.periodActive = false
+    }
+
+    func showHistoryPeriod() {
+        let mode = historyState.periodMode
+        let period = historyState.period ?? HistoryPeriod.containing(mode: mode, date: Date())
+        applyHistoryPeriod(mode: mode, period: period)
+    }
+
+    func setHistoryPeriodMode(_ mode: HistoryPeriodMode) {
+        let today = Date()
+        let anchor = min(historyState.period?.end ?? today, today)
+        applyHistoryPeriod(mode: mode, period: HistoryPeriod.containing(mode: mode, date: anchor))
+    }
+
+    func stepHistoryPeriod(by direction: Int) {
+        guard let period = historyState.period else { return }
+        let mode = historyState.periodMode
+        applyHistoryPeriod(mode: mode, period: period.shifted(mode: mode, by: direction))
+    }
+
+    func pickHistoryPeriodDate(_ date: Date) {
+        let mode = historyState.periodMode
+        applyHistoryPeriod(mode: mode, period: HistoryPeriod.containing(mode: mode, date: date))
+    }
+
+    func pickHistoryPeriodSpan(from start: Date, to end: Date) {
+        applyHistoryPeriod(mode: .days, period: HistoryPeriod.span(from: start, to: end))
+    }
+
+    private func applyHistoryPeriod(mode: HistoryPeriodMode, period: HistoryPeriod) {
+        historyState.periodActive = true
+        historyState.periodMode = mode
+        historyState.period = period
+        historyState.selectedRange = period.token
+        historyState.showCustomInputs = false
+        fetchHistoricalData()
+    }
+
+    private func historyInterval(for state: HistoryState) -> String {
+        if state.periodActive, let period = state.period {
+            return period.interval
+        }
+        if state.showCustomInputs {
+            return state.customInterval
+        }
+        switch state.selectedRange {
+        case "1w":  return "1h"
+        case "1mo": return "4h"
+        case "6mo": return "1d"
+        default:    return "1h"
+        }
     }
 
     func setCustomRange(_ range: String) {
@@ -332,17 +386,7 @@ final class BreatheViewModel: ObservableObject {
             ? zoneId
             : "\(zoneId)_\(state.selectedSensor)"
 
-        let interval: String
-        if state.showCustomInputs {
-            interval = state.customInterval
-        } else {
-            switch state.selectedRange {
-            case "1w":  interval = "1h"
-            case "1mo": interval = "4h"
-            case "6mo": interval = "1d"
-            default:    interval = "1h"
-            }
-        }
+        let interval = historyInterval(for: state)
 
         var metricsList: [String] = []
         if state.showPm25 { metricsList.append("pm2.5") }
@@ -353,7 +397,8 @@ final class BreatheViewModel: ObservableObject {
         historyState.isLoading = true
         historyState.error = nil
 
-        Task {
+        historyFetchTask?.cancel()
+        historyFetchTask = Task {
             do {
                 async let historyTask = BreatheAPI.shared.getHistoricalData(
                     location: location,
@@ -369,6 +414,7 @@ final class BreatheViewModel: ObservableObject {
 
                 let response = try await historyTask
                 let weather = await weatherTask
+                guard !Task.isCancelled else { return }
                 let groups = weatherPm25Groups(data: response.data, weather: weather)
                 let nextFilter: String
                 if state.weatherFilter != "all" && (groups[state.weatherFilter]?.count ?? 0) == 0 {
@@ -383,6 +429,7 @@ final class BreatheViewModel: ObservableObject {
                 historyState.weatherHistory = weather
                 historyState.weatherFilter = nextFilter
             } catch {
+                guard !Task.isCancelled else { return }
                 historyState.isLoading = false
                 historyState.error = "Failed to load: \(error.localizedDescription)"
             }
@@ -409,17 +456,7 @@ final class BreatheViewModel: ObservableObject {
             ? zoneId
             : "\(zoneId)_\(state.selectedSensor)"
 
-        let interval: String
-        if state.showCustomInputs {
-            interval = state.customInterval
-        } else {
-            switch state.selectedRange {
-            case "1w":  interval = "1h"
-            case "1mo": interval = "4h"
-            case "6mo": interval = "1d"
-            default:    interval = "1h"
-            }
-        }
+        let interval = historyInterval(for: state)
 
         return URL(string: "https://api.breatheoss.app/historical-data/\(location)/\(state.selectedRange)/\(interval)/pm2.5,pm10?format=csv")
     }

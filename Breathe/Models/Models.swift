@@ -249,6 +249,101 @@ struct HistoricalDataResponse: Codable {
     let stats: HistoricalStats?
 }
 
+enum HistoryPeriodMode: String, CaseIterable, Identifiable {
+    case month = "Month"
+    case week = "Week"
+    case days = "Days"
+
+    var id: String { rawValue }
+}
+
+struct HistoryPeriod: Equatable {
+    let start: Date
+    let end: Date
+
+    private static var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 2
+        return calendar
+    }
+
+    static func containing(mode: HistoryPeriodMode, date: Date) -> HistoryPeriod {
+        let calendar = Self.calendar
+        let day = calendar.startOfDay(for: date)
+
+        switch mode {
+        case .month:
+            let start = calendar.dateInterval(of: .month, for: day)?.start ?? day
+            let next = calendar.date(byAdding: .month, value: 1, to: start) ?? day
+            let end = calendar.date(byAdding: .day, value: -1, to: next) ?? day
+            return HistoryPeriod(start: start, end: end)
+        case .week:
+            let start = calendar.dateInterval(of: .weekOfYear, for: day)?.start ?? day
+            let end = calendar.date(byAdding: .day, value: 6, to: start) ?? day
+            return HistoryPeriod(start: start, end: end)
+        case .days:
+            return HistoryPeriod(start: day, end: day)
+        }
+    }
+
+    static func span(from first: Date, to second: Date) -> HistoryPeriod {
+        let calendar = Self.calendar
+        let a = calendar.startOfDay(for: first)
+        let b = calendar.startOfDay(for: second)
+        return a <= b ? HistoryPeriod(start: a, end: b) : HistoryPeriod(start: b, end: a)
+    }
+
+    private var dayCount: Int {
+        let days = Self.calendar.dateComponents([.day], from: start, to: end).day ?? 0
+        return days + 1
+    }
+
+    func shifted(mode: HistoryPeriodMode, by direction: Int) -> HistoryPeriod {
+        let calendar = Self.calendar
+
+        if mode == .month {
+            let target = calendar.date(byAdding: .month, value: direction, to: start) ?? start
+            return Self.containing(mode: .month, date: target)
+        }
+
+        let days = direction * dayCount
+        let newStart = calendar.date(byAdding: .day, value: days, to: start) ?? start
+        let newEnd = calendar.date(byAdding: .day, value: days, to: end) ?? end
+        return HistoryPeriod(start: newStart, end: newEnd)
+    }
+
+    private static func calendarString(_ date: Date) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+
+    var token: String {
+        "\(Self.calendarString(start))_\(Self.calendarString(end))"
+    }
+
+    var interval: String {
+        if dayCount <= 14 {
+            return "1h"
+        }
+        if dayCount <= 62 {
+            return "4h"
+        }
+        return "1d"
+    }
+
+    func label(mode: HistoryPeriodMode) -> String {
+        if mode == .month {
+            return start.formatted(.dateTime.month(.wide).year())
+        }
+
+        let style = Date.FormatStyle().day().month(.abbreviated).year()
+        if start == end {
+            return start.formatted(style)
+        }
+        return "\(start.formatted(style)) to \(end.formatted(style))"
+    }
+}
+
 struct HistoryState {
     var isLoading = false
     var data: [HistoricalDataPoint] = []
@@ -263,5 +358,8 @@ struct HistoryState {
     var error: String? = nil
     var weatherHistory: WeatherHistory? = nil
     var weatherFilter = "all"
+    var periodActive = false
+    var periodMode: HistoryPeriodMode = .month
+    var period: HistoryPeriod? = nil
 }
 

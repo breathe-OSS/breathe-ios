@@ -57,10 +57,12 @@ struct WeatherPm25Group: Identifiable {
 private func conditionForTs(
     ts: Int,
     interval: Int,
+    anchor: Int,
     lookup: [Int: WeatherHistoryPoint]
 ) -> String? {
     let safeInterval = max(interval, 1)
-    let bucket = (ts / safeInterval) * safeInterval
+    let elapsed = Int((Double(ts - anchor) / Double(safeInterval)).rounded(.down))
+    let bucket = anchor + elapsed * safeInterval
     return lookup[bucket]?.condition
 }
 
@@ -80,7 +82,7 @@ func filterHistoryByWeather(
     guard let weather, !weather.points.isEmpty else { return [] }
     let lookup = Dictionary(weather.points.map { ($0.ts, $0) }, uniquingKeysWith: { _, last in last })
     let interval = weather.interval
-    return data.filter { matchesWeatherFilter(condition: conditionForTs(ts: $0.ts, interval: interval, lookup: lookup), filter: filter) }
+    return data.filter { matchesWeatherFilter(condition: conditionForTs(ts: $0.ts, interval: interval, anchor: weather.anchor ?? 0, lookup: lookup), filter: filter) }
 }
 
 func weatherPm25Groups(
@@ -93,7 +95,7 @@ func weatherPm25Groups(
     var groups: [String: (sum: Double, count: Int)] = [:]
     for point in data {
         guard let pm25 = point.pm25 else { continue }
-        guard var condition = conditionForTs(ts: point.ts, interval: interval, lookup: lookup) else { continue }
+        guard var condition = conditionForTs(ts: point.ts, interval: interval, anchor: weather.anchor ?? 0, lookup: lookup) else { continue }
         if condition == "thunderstorm" { condition = "rain" }
         let current = groups[condition] ?? (sum: 0, count: 0)
         groups[condition] = (sum: current.sum + pm25, count: current.count + 1)

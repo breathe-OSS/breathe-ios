@@ -117,11 +117,12 @@ struct WeatherHistoryPoint: Codable {
 
 struct WeatherHistory: Codable {
     var interval: Int = 3600
+    var anchor: Int? = nil
     var points: [WeatherHistoryPoint] = []
     var zoneId: String?
 
     enum CodingKeys: String, CodingKey {
-        case interval, points
+        case interval, anchor, points
         case zoneId = "zone_id"
     }
 

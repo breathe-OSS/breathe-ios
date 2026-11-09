@@ -179,9 +179,11 @@ struct SensorInfo: Codable, Identifiable {
     let model: String
     let locationId: Int
     let installationDate: String
+    let latitude: Double?
+    let longitude: Double?
 
     enum CodingKeys: String, CodingKey {
-        case name, zone, provider, model
+        case name, zone, provider, model, latitude, longitude
         case locationId = "location_id"
         case installationDate = "installation_date"
     }

@@ -186,13 +186,16 @@ struct NodeReadingCard: View {
 
 // MARK: - Detail sheet (mirrors Android's ModalBottomSheet content)
 
-private struct NodeDetailSheet: View {
+// also opened from the map, which passes onOpenZone to hand over to the
+// whole zone
+struct NodeDetailSheet: View {
     let nodeName: String
     let reading: NodeReading
     let isUsAqi: Bool
     let displayAqi: Int?
     let aqiLabelStr: String
     let sensorInfo: SensorInfo?
+    var onOpenZone: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -225,6 +228,14 @@ private struct NodeDetailSheet: View {
                         infoRow("Model", info.model)
                         infoRow("Location ID", "\(info.locationId)")
                         infoRow("Install Date", info.installationDate)
+                    }
+                }
+
+                if let onOpenZone {
+                    Section {
+                        Button(action: onOpenZone) {
+                            Label("Open \(sensorInfo?.zone ?? "zone")", systemImage: "arrow.up.forward.square")
+                        }
                     }
                 }
             }

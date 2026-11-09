@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * MapView.swift
+ * MapView.swift - Every zone and ground sensor on a map, tap one for its details
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 SleeperOfSaturn <sanidhya1998@icloud.com>
@@ -28,10 +28,35 @@
 import SwiftUI
 import MapKit
 
+enum MapLayer: String, CaseIterable, Identifiable {
+    case sensors = "Sensors"
+    case districts = "Districts"
+
+    var id: String { rawValue }
+}
+
+// one bubble on the map, either a whole zone or a single sensor
+struct MapBubble: Identifiable {
+    enum Target {
+        case zone(Zone)
+        case sensor(SensorPoint)
+    }
+
+    let id: String
+    let coordinate: CLLocationCoordinate2D
+    let aqi: Int?
+    // a zone whose numbers haven't come back yet, as opposed to an offline sensor
+    let isLoading: Bool
+    let isLive: Bool
+    // modelled zones get a dashed ring when they sit among real sensors
+    let isModelled: Bool
+    let target: Target
+}
+
 @available(iOS 17.0, *)
 struct MapView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
-    
+
     // Default region covering J&K and Ladakh
     @State private var cameraPosition = MapCameraPosition.region(
         MKCoordinateRegion(
@@ -39,32 +64,89 @@ struct MapView: View {
             span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 9.0)
         )
     )
+    @State private var layer: MapLayer = .sensors
+    @State private var selectedSensor: SensorPoint?
 
-    
+    private var sensorPoints: [SensorPoint] {
+        buildSensorPoints(zones: Array(viewModel.allAqiData.values), sensorInfos: viewModel.sensorInfos)
+    }
+
+    // in the sensor layer a zone with live sensors is replaced by them, zones
+    // that only have modelled data keep their one bubble
+    private var bubbles: [MapBubble] {
+        let sensors = layer == .sensors ? sensorPoints : []
+        let zonesWithSensors = Set(sensors.map(\.zoneId))
+        var result: [MapBubble] = []
+
+        for zone in viewModel.zones {
+            guard let lat = zone.lat, let lon = zone.lon, !zonesWithSensors.contains(zone.id) else {
+                continue
+            }
+            let aqiData = viewModel.allAqiData[zone.id]
+            // prefer the live data source over the zone's static provider so the dot
+            // falls back correctly when an AirGradient zone is serving Open-Meteo data
+            let provider = aqiData?.source ?? zone.provider ?? ""
+            let isLive = provider.localizedCaseInsensitiveContains("airgradient")
+            result.append(
+                MapBubble(
+                    id: "zone/\(zone.id)",
+                    coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                    aqi: viewModel.displayAqi(for: zone.id),
+                    isLoading: aqiData == nil,
+                    isLive: isLive,
+                    isModelled: layer == .sensors && !isLive,
+                    target: .zone(zone)
+                )
+            )
+        }
+
+        for sensor in sensors {
+            let aqi: Int? = sensor.isOffline
+                ? nil
+                : (viewModel.isUsAqi ? (sensor.reading.usAqi ?? sensor.reading.aqi) : sensor.reading.aqi)
+            result.append(
+                MapBubble(
+                    id: "sensor/\(sensor.id)",
+                    coordinate: sensor.coordinate,
+                    aqi: aqi,
+                    isLoading: false,
+                    isLive: true,
+                    isModelled: false,
+                    target: .sensor(sensor)
+                )
+            )
+        }
+
+        // MapKit draws later annotations on top, so the worst air wins overlaps
+        return result.sorted { ($0.aqi ?? -1) < ($1.aqi ?? -1) }
+    }
+
     var body: some View {
         NavigationStack {
             Map(position: $cameraPosition, interactionModes: .all) {
-                ForEach(viewModel.zones) { zone in
-                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: zone.lat ?? 0, longitude: zone.lon ?? 0), anchor: .center) {
-                        let aqiData = viewModel.allAqiData[zone.id]
-                        let isSelected = viewModel.selectedMapZone?.id == zone.id
-
-                        AQIMarkerView(
-                            zone: zone,
-                            aqiData: aqiData,
-                            isUsAqi: viewModel.isUsAqi,
-                            isSelected: isSelected
-                        )
-                        .onTapGesture {
-                            withAnimation(.snappy(duration: 0.3)) {
-                                viewModel.selectedMapZone = zone
+                ForEach(bubbles) { bubble in
+                    Annotation("", coordinate: bubble.coordinate, anchor: .center) {
+                        MapBubbleView(bubble: bubble, isUsAqi: viewModel.isUsAqi)
+                            .onTapGesture {
+                                open(bubble)
                             }
-                        }
                     }
                 }
             }
             .ignoresSafeArea()
             .navigationTitle("Map")
+            .safeAreaInset(edge: .top) {
+                Picker("Map layer", selection: $layer) {
+                    ForEach(MapLayer.allCases) { entry in
+                        Text(entry.rawValue).tag(entry)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 260)
+                .padding(6)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.top, 8)
+            }
             .onAppear {
                 Task {
                     await viewModel.fetchAllAqiData()
@@ -78,9 +160,39 @@ struct MapView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .sheet(item: $selectedSensor) { sensor in
+                NodeDetailSheet(
+                    nodeName: sensor.name,
+                    reading: sensor.reading,
+                    isUsAqi: viewModel.isUsAqi,
+                    displayAqi: sensor.isOffline
+                        ? nil
+                        : (viewModel.isUsAqi ? (sensor.reading.usAqi ?? sensor.reading.aqi) : sensor.reading.aqi),
+                    aqiLabelStr: viewModel.isUsAqi ? "US AQI" : "NAQI",
+                    sensorInfo: sensor.info,
+                    onOpenZone: {
+                        selectedSensor = nil
+                        withAnimation(.snappy(duration: 0.3)) {
+                            viewModel.selectedMapZone = viewModel.zones.first { $0.id == sensor.zoneId }
+                        }
+                    }
+                )
+                .presentationDetents([.medium, .large])
+            }
         }
     }
-    
+
+    private func open(_ bubble: MapBubble) {
+        switch bubble.target {
+        case .zone(let zone):
+            withAnimation(.snappy(duration: 0.3)) {
+                viewModel.selectedMapZone = zone
+            }
+        case .sensor(let sensor):
+            viewModel.selectedMapZone = nil
+            selectedSensor = sensor
+        }
+    }
 }
 
 // MARK: - Selected Zone Quick Card
@@ -363,36 +475,37 @@ struct SelectedZoneCard: View {
 }
 
 // MARK: - Annotation Marker UI
-struct AQIMarkerView: View {
-    let zone: Zone
-    let aqiData: AqiResponse?
+struct MapBubbleView: View {
+    let bubble: MapBubble
     let isUsAqi: Bool
-    let isSelected: Bool
-    
+
     var body: some View {
-        let aqiVal = getAqi()
-        let color = getAqiColor(aqiVal)
-        // Prefer the live data source over the zone's static provider so the dot
-        // falls back correctly when an AirGradient zone is serving Open-Meteo data.
-        let provider = aqiData?.source ?? zone.provider ?? ""
-        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        
+        let color = mapAqiColor(bubble.aqi, isUsAqi: isUsAqi)
+
         ZStack {
             Circle()
                 .fill(color)
                 .frame(width: 32, height: 32)
-                .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
-            
-            if let aqiVal = aqiVal {
-                Text("\(aqiVal)")
+                .overlay(
+                    Circle().stroke(
+                        Color.white,
+                        style: bubble.isModelled
+                            ? StrokeStyle(lineWidth: 2.5, dash: [3, 2.5])
+                            : StrokeStyle(lineWidth: 2.5)
+                    )
+                )
+                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+
+            if let aqi = bubble.aqi {
+                Text("\(aqi)")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(color == Color(red: 255/255, green: 255/255, blue: 0/255) ? .black : .white)
-            } else {
+                    .foregroundColor(mapAqiTextColor(aqi, isUsAqi: isUsAqi))
+            } else if bubble.isLoading {
                 ProgressView()
                     .scaleEffect(0.6)
             }
-            
-            if isAirGradient {
+
+            if bubble.isLive {
                 Circle()
                     .fill(Color.green)
                     .frame(width: 12, height: 12)
@@ -401,32 +514,36 @@ struct AQIMarkerView: View {
             }
         }
     }
-    
-    private func getAqi() -> Int? {
-        guard let data = aqiData else { return nil }
-        return isUsAqi ? (data.usAqi ?? data.nAqi) : data.nAqi
-    }
-    
-    private func getAqiColor(_ value: Int?) -> Color {
-        guard let value = value else { return .gray }
-        if isUsAqi {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-            case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-            case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-            case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-            default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-            }
-        } else {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-            case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-            case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-            case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-            default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-            }
+}
+
+// offline sensors and zones still loading have no number and stay grey
+func mapAqiColor(_ value: Int?, isUsAqi: Bool) -> Color {
+    guard let value = value else { return .gray }
+    if isUsAqi {
+        switch value {
+        case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
+        case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
+        case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
+        case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
+        case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
+        default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
+        }
+    } else {
+        switch value {
+        case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
+        case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
+        case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
+        case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
+        case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
+        default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
         }
     }
+}
+
+// dark on the greens and yellows, white on the oranges and up
+func mapAqiTextColor(_ value: Int, isUsAqi: Bool) -> Color {
+    if isUsAqi {
+        return value < 101 ? .black : .white
+    }
+    return value < 201 ? .black : .white
 }

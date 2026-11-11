@@ -189,6 +189,13 @@ final class BreatheViewModel: ObservableObject {
                     }
                 }
             }
+#if DEBUG
+            if let shotZone = ShotHooks.zone,
+               let match = fetchedZones.first(where: { $0.id == shotZone }),
+               selectedZone?.id != match.id {
+                selectedZone = match
+            }
+#endif
         } catch {
             self.error = error.localizedDescription
         }

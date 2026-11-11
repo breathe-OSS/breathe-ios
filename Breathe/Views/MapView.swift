@@ -67,7 +67,11 @@ struct MapView: View {
             span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 9.0)
         )
     )
+#if DEBUG
+    @State private var layer: MapLayer = ShotHooks.mapLayer == "districts" ? .districts : .sensors
+#else
     @State private var layer: MapLayer = .sensors
+#endif
     @State private var selectedSensor: SensorPoint?
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var mapWidth: CGFloat = 390

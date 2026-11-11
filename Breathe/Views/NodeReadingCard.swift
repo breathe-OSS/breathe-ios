@@ -123,6 +123,14 @@ struct NodeReadingCard: View {
         .onLongPressGesture {
             showingSensorInfo = true
         }
+#if DEBUG
+        .task {
+            if ShotHooks.nodeToOpen(in: viewModel.currentAqi?.nodes) == nodeName {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                showingSensorInfo = true
+            }
+        }
+#endif
         .sheet(isPresented: $showingSensorInfo) {
             NodeDetailSheet(
                 nodeName: nodeName,

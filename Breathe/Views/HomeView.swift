@@ -38,12 +38,19 @@ struct HomeView: View {
     @AppStorage("animationsEnabled") private var animationsEnabled = true
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.horizontalSizeClass) private var sizeClass
+#if DEBUG
+    @State private var historyPage = ShotHooks.history == "hourly" ? 1 : 0
+#else
     @State private var historyPage = 0
+#endif
     @State private var showReorderSheet = false
     @AppStorage("pinnedOverview") private var pinnedOverview = false
     @State private var isOverviewExpanded = false
     @State private var showPinnedHint = false
     @State private var isWelcomeDeferred = false
+#if DEBUG
+    @State private var shotExtendedHistory = false
+#endif
     
     let columns = [
         GridItem(.flexible()),
@@ -57,9 +64,32 @@ struct HomeView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                content
+            ScrollViewReader { proxy in
+                ScrollView {
+                    content
+                }
+#if DEBUG
+                .task(id: viewModel.currentAqi?.zoneId) {
+                    guard viewModel.currentAqi != nil else {
+                        return
+                    }
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if let anchor = ShotHooks.scroll {
+                        proxy.scrollTo(anchor, anchor: .top)
+                    } else if ShotHooks.sheet != nil {
+                        proxy.scrollTo("nodes", anchor: .top)
+                    }
+                    if ShotHooks.screen == "extendedHistory" {
+                        shotExtendedHistory = true
+                    }
+                }
+#endif
             }
+#if DEBUG
+            .navigationDestination(isPresented: $shotExtendedHistory) {
+                extendedHistoryView(nodes: viewModel.currentAqi?.nodes)
+            }
+#endif
             .navigationTitle("Breathe")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.automatic)
@@ -550,6 +580,7 @@ struct HomeView: View {
             .font(.system(.title, design: .rounded))
             .fontWeight(.semibold)
             .padding(.top, 10)
+            .id("concentrations")
 
         if let concentrations, !concentrations.isEmpty {
             pollutantGrid(concentrations: concentrations)
@@ -563,6 +594,7 @@ struct HomeView: View {
                 .font(.system(.title, design: .rounded))
                 .fontWeight(.semibold)
                 .padding(.top, 10)
+                .id("nodes")
             
             VStack(spacing: 8) {
                 // Determine layout: paired down similar to DashboardComponents.kt
@@ -592,6 +624,7 @@ struct HomeView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 300)
+            .id("history")
             .padding(.vertical, 10)
             .padding(.horizontal, -8)
 
@@ -615,16 +648,7 @@ struct HomeView: View {
             // redundant on Open-Meteo only zones.
             if isAirGradient {
                 NavigationLink {
-                    ExtendedHistoryView(
-                        zoneName: viewModel.selectedZone?.name ?? "Zone",
-                        nodeKeys: nodes?.keys.sorted() ?? []
-                    )
-                    .environmentObject(viewModel)
-                    .onAppear {
-                        if let zoneId = viewModel.selectedZone?.id {
-                            viewModel.openHistory(zoneId: zoneId)
-                        }
-                    }
+                    extendedHistoryView(nodes: nodes)
                 } label: {
                     HStack {
                         Image(systemName: "clock.arrow.circlepath")
@@ -639,6 +663,19 @@ struct HomeView: View {
                             .strokeBorder(Color.accentColor, lineWidth: 1)
                     )
                 }
+            }
+        }
+    }
+
+    private func extendedHistoryView(nodes: [String: NodeReading]?) -> some View {
+        ExtendedHistoryView(
+            zoneName: viewModel.selectedZone?.name ?? "Zone",
+            nodeKeys: nodes?.keys.sorted() ?? []
+        )
+        .environmentObject(viewModel)
+        .onAppear {
+            if let zoneId = viewModel.selectedZone?.id {
+                viewModel.openHistory(zoneId: zoneId)
             }
         }
     }

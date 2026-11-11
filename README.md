@@ -15,66 +15,80 @@
 
 > **Note:** This repository is specifically for the **iOS** version of Breathe. If you are looking for the original Android version, please visit the [Breathe (Android) repository](https://github.com/breathe-OSS/breathe).
 
-**Breathe** is a modern iOS application designed to monitor real-time Air Quality Index (AQI) levels across J&K & Ladakh. Built with **Swift** and **SwiftUI**, it provides a clean, fluid interface to track pollution levels using the Indian National Air Quality Index (NAQI) standards.
+**Breathe** is a native iOS app for real-time Air Quality Index (AQI) levels across J&K & Ladakh. It is built with **Swift** and **SwiftUI**, shows the US AQI (EPA breakpoints) by default and can switch to India's National Air Quality Index (NAQI).
 
 - Check the [**breathe api**](https://github.com/breathe-OSS/api?tab=readme-ov-file#how-the-aqi-is-calculated) repo to know how the AQI is calculated.
+
+## Download
+
+[<img alt="Download on the App Store" height="56" src="https://tools.applemarketingtools.com/api/badges/download-on-the-app-store/black/en-us?size=250x83">](https://apps.apple.com/app/id6761560112)
 
 ---
 
 ## Features
 
-- **Modern iOS Design**
-- **Dark Mode Support**
-- **Fluid Animations and interactive UI**
-- **AQI Spectrum**
-- **Real-time Monitoring**
-- **Detailed AQI Breakdown**
-- **Map View with Data Overlay**
-- **24-Hour Graph of AQI Data**
-- **Detailed extended graph data for sensor based locations**
-- **Widget Support**
+- **Native iOS design** with cards, Dynamic Type, and light and dark mode
+- **US AQI and Indian NAQI**, switchable in Settings
+- **Segmented AQI gauge** with a guide to what every band means
+- **Live ground sensors**, with every sensor in a zone listed, offline ones included
+- **24 hour trend and hourly charts** you can drag across to read any hour
+- **Extended history** with weather filters, WHO guideline lines and a calendar view
+- **Map** of every zone and sensor, grouped when zoomed out
+- **Swipe between pinned places**, with context menus and haptics
+- **Cigarette equivalence**
+- **Home screen widgets**
+- **Follows Reduce Motion**
 
 ## Tech Stack
 
 - **Language:** Swift
-- **UI Framework:** SwiftUI
+- **UI Framework:** SwiftUI, Swift Charts and MapKit
 - **Architecture:** MVVM (Model-View-ViewModel)
 - **Networking:** URLSession
 - **Concurrency:** Swift Concurrency (async/await)
 
 ## Structure
 
-The project follows a modularized iOS app structure.
-
-```ios/
-├── Breathe/
-│   ├── App/                   # Application Entry Point
-│   │   └── BreatheApp.swift
-│   ├── Models/                # Data Models
-│   │   └── Models.swift
-│   ├── Networking/            # API Service
-│   │   └── BreatheAPI.swift
-│   ├── ViewModel/             # ViewModels
-│   │   └── BreatheViewModel.swift
-│   └── Views/                 # UI Components and Screens
-│       ├── GraphView.swift
-│       ├── HomeView.swift
-│       ├── MainTabView.swift
-│       ├── MapView.swift
-│       ├── SearchView.swift
-│       └── SettingsView.swift
-└── BreatheWidget/             # iOS Widget Extension
-    ├── AppIntent.swift
-    ├── BreatheWidget.swift
-    └── BreatheWidgetBundle.swift
+```
+Breathe/
+├── Breathe/App/
+│   └── BreatheApp.swift        # Application entry point
+├── Models/
+│   └── Models.swift            # API models, shared with the widget
+├── Networking/
+│   └── BreatheAPI.swift        # API client, shared with the widget
+├── Util/
+│   ├── SensorPoints.swift      # Sensor positions for the map
+│   ├── ShotHooks.swift         # DEBUG only launch arguments for CI screenshots
+│   ├── Theme.swift             # AQI palette, bands and card style
+│   └── WeatherHistory.swift    # Weather filters for extended history
+├── ViewModel/
+│   └── BreatheViewModel.swift
+└── Views/
+    ├── HomeView.swift          # Home, hero card, concentrations, sensors
+    ├── AqiGauge.swift          # Segmented gauge and band guide
+    ├── GraphView.swift         # 24 hour trend chart
+    ├── DotHistoryView.swift    # Hourly bars
+    ├── ExtendedHistoryView.swift
+    ├── ExtendedDotGrid.swift   # Calendar view of extended history
+    ├── ChartComponents.swift
+    ├── NodeReadingCard.swift   # Sensor cards and sheet
+    ├── MapView.swift
+    ├── SearchView.swift
+    ├── SettingsView.swift
+    ├── DataSourcesView.swift
+    ├── HomeOverviewViews.swift # Welcome screen and pinned overview
+    ├── ReorderPinnedView.swift
+    └── MainTabView.swift
+BreatheWidget/                  # Widget extension
 ```
 
 ## Build and deploy locally
 
 ### Prerequisites
 
-- Xcode 15 or newer.
-- A running instance of the **Breathe Backend** (Python/FastAPI).
+- Xcode 26 or newer. The app supports iOS 17.6 and later.
+- A running instance of the **Breathe Backend** (Python/FastAPI), or the public one at api.breatheoss.app.
 
 ### Installation
 
@@ -82,13 +96,19 @@ The project follows a modularized iOS app structure.
    `git clone https://github.com/breathe-OSS/breathe-ios && cd breathe-ios`
 
 2. **Open in Xcode:**
-   Open `Breathe.xcodeproj` or `Breathe.xcworkspace`.
+   Open `Breathe.xcodeproj`.
 
 3. **Configure the API Endpoint:**
    - Update the API URL in `Breathe/Networking/BreatheAPI.swift` to point to your backend server.
 
 4. **Build and Run:**
    - Select your target device or simulator in Xcode and hit **Cmd + R** (Run).
+
+### CI
+
+- **Simulator Screenshots** builds every push and shoots each screen on iPhone and iPad, light and dark.
+- **iOS Build** uploads `main` to TestFlight.
+- **App Store Submit** sends a build for review with release notes and screenshots.
 
 ## AQI Data Providers
 

@@ -395,7 +395,7 @@ struct SelectedZoneCard: View {
                         
                         Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(aqiBadgeTextColor(aqi))
+                            .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
                             .background(Capsule().fill(aqiColor(aqi)))
@@ -494,25 +494,7 @@ struct SelectedZoneCard: View {
     }
     
     private func aqiColor(_ value: Int) -> Color {
-        if viewModel.isUsAqi {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-            case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-            case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-            case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-            default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-            }
-        } else {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-            case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-            case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-            case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-            default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-            }
-        }
+        AqiPalette.color(value, isUsAqi: viewModel.isUsAqi)
     }
 
     private func isModerateAqi(_ value: Int) -> Bool {
@@ -529,14 +511,6 @@ struct SelectedZoneCard: View {
         return aqiColor(value)
     }
 
-    private func aqiBadgeTextColor(_ value: Int) -> Color {
-        if viewModel.isUsAqi {
-            return value < 101 ? .black : .white
-        } else {
-            return value < 201 ? .black : .white
-        }
-    }
-    
     private func formatPollutant(_ raw: String) -> AttributedString {
         let input = raw.lowercased().replacingOccurrences(of: "_", with: "")
         var result = AttributedString()
@@ -622,34 +596,13 @@ struct MapBubbleView: View {
     }
 }
 
-// offline sensors and zones still loading have no number and stay grey
 func mapAqiColor(_ value: Int?, isUsAqi: Bool) -> Color {
-    guard let value = value else { return .gray }
-    if isUsAqi {
-        switch value {
-        case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-        case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-        case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-        case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-        case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-        default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-        }
-    } else {
-        switch value {
-        case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-        case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-        case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-        case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-        case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-        default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-        }
+    guard let value = value else {
+        return .gray
     }
+    return AqiPalette.color(value, isUsAqi: isUsAqi)
 }
 
-// dark on the greens and yellows, white on the oranges and up
 func mapAqiTextColor(_ value: Int, isUsAqi: Bool) -> Color {
-    if isUsAqi {
-        return value < 101 ? .black : .white
-    }
-    return value < 201 ? .black : .white
+    AqiPalette.onColor(value, isUsAqi: isUsAqi)
 }

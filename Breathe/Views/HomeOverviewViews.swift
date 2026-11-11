@@ -26,50 +26,6 @@
 
 import SwiftUI
 
-func aqiScaleColor(_ value: Int, isUsAqi: Bool) -> Color {
-    if isUsAqi {
-        switch value {
-        case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-        case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-        case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-        case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-        case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-        default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-        }
-    } else {
-        switch value {
-        case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-        case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-        case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-        case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-        case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-        default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-        }
-    }
-}
-
-func aqiCategoryLabel(_ value: Int, isUsAqi: Bool) -> String {
-    if isUsAqi {
-        switch value {
-        case ..<51:  return "Good"
-        case ..<101: return "Moderate"
-        case ..<151: return "Unhealthy for Sensitive Groups"
-        case ..<201: return "Unhealthy"
-        case ..<301: return "Very Unhealthy"
-        default:     return "Hazardous"
-        }
-    } else {
-        switch value {
-        case ..<51:  return "Good"
-        case ..<101: return "Satisfactory"
-        case ..<201: return "Moderate"
-        case ..<301: return "Poor"
-        case ..<401: return "Very Poor"
-        default:     return "Severe"
-        }
-    }
-}
-
 struct CountingText: View, Animatable {
     var value: Double
 
@@ -246,7 +202,7 @@ private struct SnapshotRow: View {
                     .font(.system(.body, design: .rounded))
                     .fontWeight(.bold)
                     .monospacedDigit()
-                    .foregroundStyle(aqiScaleColor(entry.aqi, isUsAqi: isUsAqi))
+                    .foregroundStyle(AqiPalette.color(entry.aqi, isUsAqi: isUsAqi))
             }
             .padding(.vertical, 8)
             .contentShape(Rectangle())
@@ -308,7 +264,7 @@ struct PinnedOverviewCard: View {
     let isUsAqi: Bool
 
     var body: some View {
-        let color = aqi.map { aqiScaleColor($0, isUsAqi: isUsAqi) } ?? .gray
+        let color = aqi.map { AqiPalette.color($0, isUsAqi: isUsAqi) } ?? .gray
         let isLive = zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
 
         VStack(alignment: .leading, spacing: 6) {
@@ -330,7 +286,7 @@ struct PinnedOverviewCard: View {
                     .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundStyle(color)
 
-                Text(aqiCategoryLabel(aqi, isUsAqi: isUsAqi))
+                Text(AqiPalette.label(aqi, isUsAqi: isUsAqi))
                     .font(.system(.caption, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

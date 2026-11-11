@@ -354,13 +354,6 @@ struct ExtendedDotGrid: View {
     }
 
     private func usAqiColor(_ value: Int) -> Color {
-        switch value {
-        case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-        case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-        case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-        case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-        case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-        default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-        }
+        AqiPalette.color(value, isUsAqi: true)
     }
 }

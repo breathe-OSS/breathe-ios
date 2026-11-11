@@ -139,7 +139,7 @@ struct DotHistoryView: View {
     }
 
     private var legendReps: [Int] {
-        isUsAqi ? [25, 75, 125, 175, 250, 400] : [25, 75, 150, 250, 350, 450]
+        AqiPalette.samples(isUsAqi: isUsAqi)
     }
 
     private var chartCardBackground: Color {
@@ -153,24 +153,6 @@ struct DotHistoryView: View {
     }
 
     private func aqiColor(_ value: Int) -> Color {
-        if isUsAqi {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-            case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-            case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-            case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-            default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-            }
-        } else {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-            case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-            case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-            case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-            default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-            }
-        }
+        AqiPalette.color(value, isUsAqi: isUsAqi)
     }
 }

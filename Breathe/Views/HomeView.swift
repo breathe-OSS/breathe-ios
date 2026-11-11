@@ -436,7 +436,7 @@ struct HomeView: View {
 
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(aqiLabel(aqi))
+                Text(AqiPalette.label(aqi, isUsAqi: viewModel.isUsAqi))
                     .font(.system(.title3, design: .rounded))
                     .fontWeight(.bold)
                     .foregroundStyle(aqiTextColor)
@@ -449,7 +449,7 @@ struct HomeView: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .foregroundStyle(aqiBadgeTextColor(aqi))
+                    .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
                     .background(
                         Capsule()
                             .fill(aqiColor(aqi))
@@ -691,35 +691,16 @@ struct HomeView: View {
     @ViewBuilder
     private func setGaugeSpectrum(position: Double) -> some View {
         ZStack(alignment: .leading) {
-            if viewModel.isUsAqi {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(stops: [
-                            .init(color: Color(red: 0/255, green: 228/255, blue: 0/255), location: 0.0),      // Good
-                            .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.10),   // Moderate
-                            .init(color: Color(red: 255/255, green: 126/255, blue: 0/255), location: 0.20),   // Sensitive
-                            .init(color: Color(red: 255/255, green: 0/255, blue: 0/255), location: 0.30),     // Unhealthy
-                            .init(color: Color(red: 143/255, green: 63/255, blue: 151/255), location: 0.40),  // Very Unhealthy
-                            .init(color: Color(red: 126/255, green: 0/255, blue: 35/255), location: 0.60)     // Hazardous
-                        ], startPoint: .leading, endPoint: .trailing)
-                    )
-                    .frame(height: 8)
-                    .padding(.horizontal, 5)
-            } else {
-                RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(
-                    LinearGradient(stops: [
-                        .init(color: Color(red: 0/255, green: 176/255, blue: 80/255), location: 0.0),      // Good
-                        .init(color: Color(red: 146/255, green: 208/255, blue: 80/255), location: 0.10),   // Satisfactory
-                        .init(color: Color(red: 255/255, green: 255/255, blue: 0/255), location: 0.20),   // Moderate
-                        .init(color: Color(red: 244/255, green: 145/255, blue: 28/255), location: 0.40),   // Poor
-                        .init(color: Color(red: 233/255, green: 63/255, blue: 51/255), location: 0.60),    // Very Poor
-                        .init(color: Color(red: 175/255, green: 45/255, blue: 36/255), location: 0.80)     // Severe
-                    ], startPoint: .leading, endPoint: .trailing)
+                    LinearGradient(
+                        stops: AqiPalette.gradientStops(isUsAqi: viewModel.isUsAqi),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
-                    .frame(height: 8)
-                    .padding(.horizontal, 5)
-            }
+                .frame(height: 8)
+                .padding(.horizontal, 5)
             GeometryReader { geo in
                 let xOffset = geo.size.width * position - 8
                 ZStack(alignment: .top) {
@@ -755,25 +736,7 @@ struct HomeView: View {
     }
 
     private func aqiColor(_ value: Int) -> Color {
-        if viewModel.isUsAqi {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 228/255, blue: 0/255)
-            case ..<101: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<151: return Color(red: 255/255, green: 126/255, blue: 0/255)
-            case ..<201: return Color(red: 255/255, green: 0/255, blue: 0/255)
-            case ..<301: return Color(red: 143/255, green: 63/255, blue: 151/255)
-            default:     return Color(red: 126/255, green: 0/255, blue: 35/255)
-            }
-        } else {
-            switch value {
-            case ..<51:  return Color(red: 0/255, green: 176/255, blue: 80/255)
-            case ..<101: return Color(red: 146/255, green: 208/255, blue: 80/255)
-            case ..<201: return Color(red: 255/255, green: 255/255, blue: 0/255)
-            case ..<301: return Color(red: 244/255, green: 145/255, blue: 28/255)
-            case ..<401: return Color(red: 233/255, green: 63/255, blue: 51/255)
-            default:     return Color(red: 175/255, green: 45/255, blue: 36/255)
-            }
-        }
+        AqiPalette.color(value, isUsAqi: viewModel.isUsAqi)
     }
 
     private func isModerateAqi(_ value: Int) -> Bool {
@@ -790,24 +753,6 @@ struct HomeView: View {
         return aqiColor(value)
     }
 
-    private func aqiBadgeTextColor(_ value: Int) -> Color {
-        if viewModel.isUsAqi {
-            return value < 101 ? .black : .white
-        } else {
-            return value < 201 ? .black : .white
-        }
-    }
-    
-    private func aqiLabel(_ value: Int) -> String {
-        switch value {
-        case ..<51:  return "Good"
-        case ..<101: return "Moderate"
-        case ..<151: return "Unhealthy for Sensitive Groups"
-        case ..<201: return "Unhealthy"
-        case ..<301: return "Very Unhealthy"
-        default:     return "Hazardous"
-        }
-    }
 }
 
 extension View {

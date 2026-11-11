@@ -249,7 +249,7 @@ struct PinnedHintCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.accentColor.opacity(0.12))
         )
     }
@@ -260,6 +260,8 @@ struct PinnedOverviewCard: View {
     let aqi: Int?
     let isUsAqi: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let color = aqi.map { AqiPalette.color($0, isUsAqi: isUsAqi) } ?? .gray
         let isLive = zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
@@ -267,26 +269,33 @@ struct PinnedOverviewCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text(zone.name)
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.bold)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
                     .lineLimit(1)
 
                 if isLive {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 6, height: 6)
+                        .accessibilityLabel("Live ground sensors")
                 }
             }
 
             if let aqi = aqi {
                 Text("\(aqi)")
                     .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .foregroundStyle(color)
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
 
-                Text(AqiPalette.label(aqi, isUsAqi: isUsAqi))
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 8, height: 8)
+                    Text(AqiPalette.label(aqi, isUsAqi: isUsAqi))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             } else {
                 ProgressView()
                     .frame(height: 48)
@@ -296,7 +305,12 @@ struct PinnedOverviewCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(color.opacity(0.15))
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(color.opacity(colorScheme == .dark ? 0.22 : 0.16))
+                )
         )
+        .accessibilityElement(children: .combine)
     }
 }

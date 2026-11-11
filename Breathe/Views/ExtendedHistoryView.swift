@@ -548,6 +548,7 @@ struct ExtendedHistoryView: View {
             }
         }
         .frame(height: 240)
+        .sensoryFeedback(.selection, trigger: selected?.ts)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("PM concentrations over the selected range")
     }

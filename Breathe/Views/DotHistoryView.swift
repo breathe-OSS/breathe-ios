@@ -100,5 +100,6 @@ struct DotHistoryView: View {
             }
         }
         .card()
+        .sensoryFeedback(.selection, trigger: selected?.date)
     }
 }

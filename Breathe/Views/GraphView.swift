@@ -113,6 +113,7 @@ struct GraphView: View {
             }
         }
         .card()
+        .sensoryFeedback(.selection, trigger: closestSample(to: selectedDate, in: samples)?.date)
     }
 
     private func chart(samples: [AqiSample], shown: AqiSample?) -> some View {

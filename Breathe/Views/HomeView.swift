@@ -74,6 +74,7 @@ struct HomeView: View {
                     content
                 }
                 .background(Color(.systemGroupedBackground))
+                .sensoryFeedback(.selection, trigger: viewModel.selectedZone?.id)
 #if DEBUG
                 .task(id: viewModel.currentAqi?.zoneId) {
                     guard viewModel.currentAqi != nil else {

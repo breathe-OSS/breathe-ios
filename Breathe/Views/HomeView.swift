@@ -350,11 +350,11 @@ struct HomeView: View {
                         if let weather = response.weather,
                            !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             WeatherContextCard(weather: weather)
-                                .squircleCard()
+                                .card()
                         }
 
                         cigarettesCard(cigarettes: cigarettes)
-                            .squircleCard()
+                            .card()
                     }
                     .frame(maxHeight: .infinity, alignment: .top)
                 }
@@ -385,9 +385,10 @@ struct HomeView: View {
             if let weather = response.weather,
                !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 WeatherContextCard(weather: weather)
-                    .padding(.bottom, 12)
+                    .card()
             }
             cigarettesCard(cigarettes: cigarettes)
+                .card()
             concentrationsSection(concentrations: response.concentrations)
             nodesSection(nodes: response.nodes)
             historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
@@ -520,28 +521,13 @@ struct HomeView: View {
         .animation(reduceMotion ? .none : .snappy, value: aqi)
     }
 
-    @ViewBuilder
     private func cigarettesCard(cigarettes: Double) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.red.opacity(0.2))
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: "lungs.fill")
-                    .foregroundStyle(.red)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: "Approx. %.1f cigarettes", cigarettes))
-                    .font(.system(.headline, design: .rounded))
-                    .fontWeight(.bold)
-
-                Text("Equivalent PM2.5 inhalation today")
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-        }
+        ContextRow(
+            systemImage: "lungs.fill",
+            tint: .pink,
+            title: String(format: "Approx. %.1f cigarettes", cigarettes),
+            detail: "Equivalent PM2.5 inhalation today"
+        )
     }
 
     @ViewBuilder
@@ -747,18 +733,6 @@ struct HomeView: View {
     }
 }
 
-extension View {
-    func squircleCard() -> some View {
-        self
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color(.systemFill).opacity(0.4))
-            )
-    }
-}
-
 struct PollutantLabel: View {
     let raw: String
     var style: Font.TextStyle = .subheadline
@@ -829,25 +803,39 @@ struct WeatherContextCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.2))
-                    .frame(width: 44, height: 44)
+        ContextRow(
+            systemImage: weatherConditionSymbol(weather.condition),
+            tint: .accentColor,
+            title: "\(conditionLabel) · \(seasonLabel)",
+            detail: weather.text
+        )
+    }
+}
 
-                Image(systemName: weatherConditionSymbol(weather.condition))
-                    .foregroundStyle(Color.accentColor)
-            }
+struct ContextRow: View {
+    let systemImage: String
+    let tint: Color
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+                .frame(width: 40, height: 40)
+                .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(conditionLabel) · \(seasonLabel)")
-                    .font(.system(.headline, design: .rounded))
-                    .fontWeight(.bold)
-
-                Text(weather.text)
-                    .font(.system(.caption, design: .rounded))
+                Text(title)
+                    .font(.headline)
+                Text(detail)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+
+            Spacer(minLength: 0)
         }
     }
 }

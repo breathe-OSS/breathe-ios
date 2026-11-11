@@ -34,9 +34,21 @@ struct ReorderPinnedView: View {
         NavigationStack {
             List {
                 ForEach(viewModel.pinnedZones) { zone in
-                    Text(zone.name)
-                        .font(.system(.body, design: .rounded))
-                        .fontWeight(.semibold)
+                    HStack {
+                        Text(zone.name)
+                            .fontWeight(.medium)
+                        Spacer()
+                        if let aqi = viewModel.displayAqi(for: zone.id) {
+                            Text("\(aqi)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
+                                .background(Capsule().fill(AqiPalette.color(aqi, isUsAqi: viewModel.isUsAqi)))
+                        }
+                    }
                 }
                 .onMove { source, destination in
                     viewModel.movePinnedZones(from: source, to: destination)

@@ -209,7 +209,7 @@ final class BreatheViewModel: ObservableObject {
         isLoading = true
         do {
             let fetchedData = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
-            if !isMapSelection {
+            if !isMapSelection && zone.id == selectedZone?.id {
                 currentAqi = fetchedData
             }
             allAqiData[zone.id] = fetchedData

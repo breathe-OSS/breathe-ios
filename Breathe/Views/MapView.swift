@@ -62,6 +62,7 @@ struct MapView: View {
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var hasFramedZones = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 #if DEBUG
     @State private var layer: MapLayer = ShotHooks.mapLayer == "districts" ? .districts : .sensors
 #else
@@ -255,7 +256,7 @@ struct MapView: View {
                 longitudeDelta: max((maxLon - minLon) * margin, 0.05)
             )
         )
-        if animated {
+        if animated && !reduceMotion {
             withAnimation(.snappy(duration: 0.5)) {
                 cameraPosition = .region(region)
             }

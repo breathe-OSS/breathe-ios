@@ -45,6 +45,8 @@ struct HomeView: View {
 #endif
     @State private var showReorderSheet = false
     @State private var showScaleSheet = false
+    @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.35, dampingFraction: 0.8)))
+    private var heroDrag: CGFloat = 0
     @AppStorage("pinnedOverview") private var pinnedOverview = false
     @State private var isOverviewExpanded = false
     @State private var showPinnedHint = false
@@ -327,6 +329,18 @@ struct HomeView: View {
             }
             .scrollIndicators(.hidden)
             .padding(.horizontal, -16)
+            .onChange(of: viewModel.selectedZone?.id) { _, id in
+                guard let id else {
+                    return
+                }
+                if reduceMotion {
+                    proxy.scrollTo(id, anchor: .center)
+                } else {
+                    withAnimation {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
+            }
         }
     }
 
@@ -567,6 +581,44 @@ struct HomeView: View {
                 )
         )
         .animation(reduceMotion ? .none : .snappy, value: aqi)
+        .offset(x: heroDrag)
+        .simultaneousGesture(heroSwipe)
+        .accessibilityAction(named: "Next pinned location") {
+            stepZone(by: 1)
+        }
+        .accessibilityAction(named: "Previous pinned location") {
+            stepZone(by: -1)
+        }
+    }
+
+    private var heroSwipe: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .updating($heroDrag) { value, state, _ in
+                let dx = value.translation.width
+                guard abs(dx) > abs(value.translation.height), viewModel.pinnedZones.count > 1 else {
+                    return
+                }
+                state = dx / 4
+            }
+            .onEnded { value in
+                let dx = value.translation.width
+                guard abs(dx) > 70, abs(dx) > abs(value.translation.height) * 1.5 else {
+                    return
+                }
+                stepZone(by: dx < 0 ? 1 : -1)
+            }
+    }
+
+    private func stepZone(by step: Int) {
+        let zones = viewModel.pinnedZones
+        guard let current = zones.firstIndex(where: { $0.id == viewModel.selectedZone?.id }) else {
+            return
+        }
+        let next = current + step
+        guard zones.indices.contains(next) else {
+            return
+        }
+        viewModel.selectedZone = zones[next]
     }
 
     private func cigarettesCard(cigarettes: Double) -> some View {

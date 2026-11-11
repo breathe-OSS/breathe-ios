@@ -55,6 +55,24 @@ enum AqiPalette {
         (Int.max, 0xDC2626, "Severe", false),
     ]
 
+    private static let usAdvice: [String] = [
+        "Air quality is satisfactory and poses little or no risk.",
+        "Acceptable for most. Unusually sensitive people should think about cutting long outdoor exertion.",
+        "Children, older adults and people with heart or lung disease should cut long or heavy outdoor exertion.",
+        "Everyone may start to feel effects. Sensitive groups should avoid long outdoor exertion.",
+        "Health alert. Everyone should cut outdoor exertion and sensitive groups should stay indoors.",
+        "Emergency conditions. Everyone should avoid outdoor activity.",
+    ]
+
+    private static let naqiAdvice: [String] = [
+        "Minimal impact.",
+        "Minor breathing discomfort for sensitive people.",
+        "Breathing discomfort for people with lung or heart disease, children and older adults.",
+        "Breathing discomfort for most people on long exposure.",
+        "Respiratory illness on long exposure.",
+        "Affects healthy people and seriously affects people with existing disease.",
+    ]
+
     private static func step(_ value: Int, isUsAqi: Bool) -> (upper: Int, hex: UInt32, label: String, darkText: Bool) {
         let steps = isUsAqi ? usSteps : naqiSteps
         return steps.first { value <= $0.upper } ?? steps[steps.count - 1]
@@ -85,10 +103,17 @@ enum AqiPalette {
 
     static func bands(isUsAqi: Bool) -> [AqiBand] {
         let steps = isUsAqi ? usSteps : naqiSteps
+        let advice = isUsAqi ? usAdvice : naqiAdvice
         var lower = 0
-        return steps.map { entry in
+        return steps.enumerated().map { index, entry in
             let upper = min(entry.upper, 500)
-            let band = AqiBand(lower: lower, upper: upper, color: Color(hex: entry.hex), label: entry.label)
+            let band = AqiBand(
+                lower: lower,
+                upper: upper,
+                color: Color(hex: entry.hex),
+                label: entry.label,
+                advice: advice[index]
+            )
             lower = upper
             return band
         }
@@ -109,18 +134,6 @@ enum AqiPalette {
         stops.append(Gradient.Stop(color: color(low, isUsAqi: isUsAqi), location: 1))
         return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
     }
-
-    static func gradientStops(isUsAqi: Bool) -> [Gradient.Stop] {
-        let steps = isUsAqi ? usSteps : naqiSteps
-        var lower = 0
-        return steps.map { entry in
-            let stop = Gradient.Stop(color: Color(hex: entry.hex), location: Double(lower) / 500)
-            if entry.upper < 500 {
-                lower = entry.upper + 1
-            }
-            return stop
-        }
-    }
 }
 
 struct AqiBand: Identifiable {
@@ -128,8 +141,24 @@ struct AqiBand: Identifiable {
     let upper: Int
     let color: Color
     let label: String
+    let advice: String
 
     var id: Int { lower }
+
+    var rangeText: String {
+        let start = lower == 0 ? 0 : lower + 1
+        if upper >= 500 {
+            return "\(start)+"
+        }
+        return "\(start) to \(upper)"
+    }
+
+    func contains(_ value: Int) -> Bool {
+        if lower == 0 {
+            return value <= upper
+        }
+        return value > lower && (value <= upper || upper >= 500)
+    }
 }
 
 enum SeriesPalette {

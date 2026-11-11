@@ -44,6 +44,7 @@ struct HomeView: View {
     @State private var historyPage = 0
 #endif
     @State private var showReorderSheet = false
+    @State private var showScaleSheet = false
     @AppStorage("pinnedOverview") private var pinnedOverview = false
     @State private var isOverviewExpanded = false
     @State private var showPinnedHint = false
@@ -115,6 +116,10 @@ struct HomeView: View {
             .sheet(isPresented: $showReorderSheet) {
                 ReorderPinnedView()
                     .environmentObject(viewModel)
+            }
+            .sheet(isPresented: $showScaleSheet) {
+                AqiScaleSheet(aqi: viewModel.displayAqi ?? 0, isUsAqi: viewModel.isUsAqi)
+                    .presentationDetents([.medium, .large])
             }
         }
         .sheet(isPresented: welcomeBinding) {
@@ -514,8 +519,11 @@ struct HomeView: View {
                 }
             }
 
-            setGaugeSpectrum(position: min(max(Double(aqi) / 500.0, 0), 1))
-                .padding(.vertical, 4)
+            AqiGauge(aqi: aqi, isUsAqi: viewModel.isUsAqi)
+                .padding(.vertical, 2)
+                .onTapGesture {
+                    showScaleSheet = true
+                }
 
             footerLayout {
                 if let h = viewModel.display1hTrend {
@@ -699,35 +707,6 @@ struct HomeView: View {
             return "mg/m³"
         }
         return "µg/m³"
-    }
-
-    // MARK: - Spectrum Helper
-    @ViewBuilder
-    private func setGaugeSpectrum(position: Double) -> some View {
-        ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(
-                    LinearGradient(
-                        stops: AqiPalette.gradientStops(isUsAqi: viewModel.isUsAqi),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 8)
-                .padding(.horizontal, 5)
-            GeometryReader { geo in
-                let xOffset = geo.size.width * position - 8
-                ZStack(alignment: .top) {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 16, height: 16)
-                        .shadow(radius: 2)
-                        .offset(x: xOffset)
-                        .animation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.7), value: xOffset)
-                }
-            }
-            .frame(height: 16)
-        }
     }
 
     // MARK: - Subviews & Formatting Logic

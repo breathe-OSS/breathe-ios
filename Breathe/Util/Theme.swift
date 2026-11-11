@@ -116,6 +116,17 @@ extension View {
     }
 }
 
+extension View {
+    @ViewBuilder
+    func floatingGlass() -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular, in: Capsule())
+        } else {
+            background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
 struct SectionHeader: View {
     let title: String
 

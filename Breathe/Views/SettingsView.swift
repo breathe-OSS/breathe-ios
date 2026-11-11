@@ -29,116 +29,78 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
-    
+
     @AppStorage("themeMode") private var themeMode = "auto"
     @AppStorage("pinnedOverview") private var pinnedOverview = false
-    
-    @State private var showDataSourceDialog = false
-    
+#if DEBUG
+    @State private var shotDataSources = false
+#endif
+
+    private var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "Breathe \(version) (\(build))"
+    }
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
                 Form {
-                    
-                    Section(header: Text("Appearance")) {
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            
-                            Text("Theme")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                            
-                            Text("Choose app appearance")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Picker("Theme", selection: $themeMode) {
-                                Text("Auto").tag("auto")
-                                Text("Light").tag("light")
-                                Text("Dark").tag("dark")
-                            }
-                            .pickerStyle(.segmented)
+                    Section("Appearance") {
+                        Picker("Theme", selection: $themeMode) {
+                            Text("System").tag("auto")
+                            Text("Light").tag("light")
+                            Text("Dark").tag("dark")
                         }
-                    }
-                    
-                    Section(header: Text("General")) {
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-
-        Text("AQI Standard")
-            .font(.headline)
-            .fontWeight(.semibold)
-
-        Text("Choose which air quality index standard to display")
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-
-        Picker("AQI Standard", selection: $viewModel.isUsAqi) {
-            Text("Indian NAQI").tag(false)
-            Text("US AQI").tag(true)
-        }
-        .pickerStyle(.segmented)
-    }
-
-                        Toggle(isOn: $pinnedOverview) {
-                            VStack(alignment: .leading) {
-                                Text("Pinned Overview")
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                Text("Show pinned locations as cards on Home")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        Button(action: { showDataSourceDialog = true }) {
-                            VStack(alignment: .leading) {
-                                Text("Data Sources")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                Text("OpenMeteo & AirGradient ground sensors")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        if let url = URL(string: "https://github.com/breathe-OSS/breathe-ios") {
-                            Link(destination: url) {
-                                VStack(alignment: .leading) {
-                                    Text("Breathe iOS")
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    Text("View Source on GitHub")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
+                        .pickerStyle(.menu)
                     }
 
-                    Section(header: Text("About")) {
-                        if let url = URL(string: "https://about.breatheoss.app") {
-                            Link(destination: url) {
-                                VStack(alignment: .leading) {
-                                    Text("About Breathe")
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    Text("Our Philosophy & Vision")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
+                    Section {
+                        Picker("AQI Standard", selection: $viewModel.isUsAqi) {
+                            Text("US AQI").tag(true)
+                            Text("NAQI").tag(false)
                         }
+                        .pickerStyle(.menu)
+                    } header: {
+                        Text("Air Quality")
+                    } footer: {
+                        Text("US AQI uses the EPA breakpoints. NAQI is India's national index. The numbers and colours across the app follow this choice.")
                     }
-                    
-                    Section(header: Text("We, the People of Breathe")) {
-                        ContributorLink(name: "Sidharth \"Siddhi\" Sharma", role: "Lead Developer (@sidharthify)", url: "https://github.com/sidharthify")
-                        ContributorLink(name: "Sannidhya Sharma", role: "Developer (@sleeperofsaturn)", url: "https://github.com/sleeperofsaturn")
-                        ContributorLink(name: "Aaditya Gupta", role: "Developer (@Flashwreck)", url: "https://github.com/Flashwreck")
-                        ContributorLink(name: "Aditya Choudhary", role: "Contributor (@empirea9)", url: "https://github.com/empirea9")
-                        ContributorLink(name: "Veer P.S Singh", role: "Contributor (@Lostless1907)", url: "https://github.com/Lostless1907")
-                        ContributorLink(name: "Suvesh Moza", role: "Contributor (@suveshmoza)", url: "https://github.com/suveshmoza")
+
+                    Section {
+                        Toggle("Pinned Overview", isOn: $pinnedOverview)
+                    } footer: {
+                        Text("Show every pinned location as a card on Home instead of one at a time.")
+                    }
+
+                    Section("About") {
+                        NavigationLink {
+                            DataSourcesView()
+                        } label: {
+                            Label("Data Sources", systemImage: "antenna.radiowaves.left.and.right")
+                        }
+                        LinkRow(title: "Source Code", systemImage: "chevron.left.forwardslash.chevron.right", url: "https://github.com/breathe-OSS/breathe-ios")
+                        LinkRow(title: "About Breathe", systemImage: "info.circle", url: "https://about.breatheoss.app")
+                        LinkRow(title: "Blog", systemImage: "text.book.closed", url: "https://blogs.breatheoss.app")
+                        LinkRow(title: "System Status", systemImage: "waveform.path.ecg", url: "https://status.breatheoss.app")
+                        LinkRow(title: "Privacy Policy", systemImage: "hand.raised", url: "https://breatheoss.app/privacy/")
+                    }
+
+                    Section {
+                        PersonRow(name: "Sidharth \"Siddhi\" Sharma", handle: "sidharthify", role: "Lead Developer")
+                        PersonRow(name: "Sannidhya Sharma", handle: "sleeperofsaturn", role: "Developer")
+                        PersonRow(name: "Aaditya Gupta", handle: "Flashwreck", role: "Developer")
+                        PersonRow(name: "Aditya Choudhary", handle: "empirea9", role: "Contributor")
+                        PersonRow(name: "Veer P.S Singh", handle: "Lostless1907", role: "Contributor")
+                        PersonRow(name: "Suvesh Moza", handle: "suveshmoza", role: "Contributor")
                             .id("bottom")
+                    } header: {
+                        Text("Credits")
+                    } footer: {
+                        Text(versionText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
                     }
                 }
 #if DEBUG
@@ -147,41 +109,67 @@ struct SettingsView: View {
                         try? await Task.sleep(nanoseconds: 1_500_000_000)
                         proxy.scrollTo("bottom", anchor: .bottom)
                     }
+                    if ShotHooks.screen == "dataSources" {
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        shotDataSources = true
+                    }
                 }
 #endif
             }
+#if DEBUG
+            .navigationDestination(isPresented: $shotDataSources) {
+                DataSourcesView()
+            }
+#endif
             .navigationTitle("Settings")
-            .alert("Data Sources", isPresented: $showDataSourceDialog) {
-                Button("Close", role: .cancel) { }
-            } message: {
-                Text("Jammu & Kashmir regions (excl. Srinagar and Jammu)\nAir quality pollutants data sourced from Open-Meteo.\n\nSrinagar and Jammu\nPM10 and PM2.5 sourced from AirGradient ground sensor, and others from Open-Meteo\n\nairgradient.com\nopen-meteo.com")
+        }
+    }
+}
+
+struct LinkRow: View {
+    let title: String
+    var subtitle: String? = nil
+    var systemImage: String? = nil
+    let url: String
+
+    var body: some View {
+        if let destination = URL(string: url) {
+            Link(destination: destination) {
+                HStack(spacing: 12) {
+                    if let systemImage {
+                        Image(systemName: systemImage)
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 28)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .foregroundStyle(.primary)
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
             }
         }
     }
 }
 
-struct ContributorLink: View {
+struct PersonRow: View {
     let name: String
+    let handle: String
     let role: String
-    let url: String
-    
+
     var body: some View {
-        if let linkUrl = URL(string: url) {
-            Link(destination: linkUrl) {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(name)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        Text(role)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
+        LinkRow(title: name, subtitle: "\(role), @\(handle)", url: "https://github.com/\(handle)")
     }
 }

@@ -78,8 +78,9 @@ struct MapView: View {
     // in the sensor layer a zone with live sensors is replaced by them, zones
     // that only have modelled data keep their one bubble
     private var bubbles: [MapBubble] {
-        let sensors = layer == .sensors ? sensorPoints : []
-        let zonesWithSensors = Set(sensors.map(\.zoneId))
+        let allSensors = layer == .sensors ? sensorPoints : []
+        let zonesWithSensors = Set(allSensors.filter { !$0.isOffline }.map(\.zoneId))
+        let sensors = allSensors.filter { zonesWithSensors.contains($0.zoneId) }
         var result: [MapBubble] = []
 
         for zone in viewModel.zones {

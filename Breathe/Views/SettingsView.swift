@@ -31,7 +31,6 @@ struct SettingsView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
     
     @AppStorage("themeMode") private var themeMode = "auto"
-    @AppStorage("animationsEnabled") private var animationsEnabled = true
     @AppStorage("pinnedOverview") private var pinnedOverview = false
     
     @State private var showDataSourceDialog = false
@@ -128,19 +127,6 @@ struct SettingsView: View {
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
-                            }
-                        }
-                    }
-                    
-                    Section(header: Text("Performance")) {
-                        Toggle(isOn: $animationsEnabled) {
-                            VStack(alignment: .leading) {
-                                Text("Animations")
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                Text("Enable all animations")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
                             }
                         }
                     }

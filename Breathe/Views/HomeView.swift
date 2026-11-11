@@ -35,7 +35,7 @@ import AppKit
 struct HomeView: View {
     
     @EnvironmentObject private var viewModel: BreatheViewModel
-    @AppStorage("animationsEnabled") private var animationsEnabled = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.horizontalSizeClass) private var sizeClass
 #if DEBUG
@@ -107,10 +107,9 @@ struct HomeView: View {
                 worstEntries: Array(rankedLiveEntries.prefix(3)),
                 bestEntries: Array(rankedLiveEntries.reversed().prefix(3)),
                 isUsAqi: viewModel.isUsAqi,
-                animationsEnabled: animationsEnabled,
                 onSelect: { zone in
                     viewModel.togglePin(for: zone)
-                    withAnimation(animationsEnabled ? .spring(response: 0.45, dampingFraction: 0.8) : .none) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.45, dampingFraction: 0.8)) {
                         showPinnedHint = true
                     }
                 },
@@ -154,7 +153,7 @@ struct HomeView: View {
 
             if showPinnedHint && !viewModel.pinnedZones.isEmpty {
                 PinnedHintCard {
-                    withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85)) {
                         showPinnedHint = false
                     }
                 }
@@ -231,7 +230,7 @@ struct HomeView: View {
     private func pinnedOverviewSection() -> some View {
         if isOverviewExpanded {
             Button {
-                withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                withAnimation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85)) {
                     isOverviewExpanded = false
                 }
             } label: {
@@ -245,7 +244,7 @@ struct HomeView: View {
                 ForEach(viewModel.pinnedZones) { zone in
                     Button {
                         viewModel.selectedZone = zone
-                        withAnimation(animationsEnabled ? .spring(response: 0.4, dampingFraction: 0.85) : .none) {
+                        withAnimation(reduceMotion ? .none : .spring(response: 0.4, dampingFraction: 0.85)) {
                             isOverviewExpanded = true
                         }
                     } label: {
@@ -309,7 +308,7 @@ struct HomeView: View {
     }
 
     private func selectZone(_ zone: Zone, proxy: ScrollViewProxy) {
-        if animationsEnabled {
+        if !reduceMotion {
             withAnimation {
                 viewModel.selectedZone = zone
                 proxy.scrollTo(zone.id, anchor: .center)
@@ -547,7 +546,7 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 28)
                 .fill(aqiColor(aqi).opacity(0.15))
         )
-        .animation(animationsEnabled ? .snappy : .none, value: aqi)
+        .animation(reduceMotion ? .none : .snappy, value: aqi)
     }
 
     @ViewBuilder
@@ -721,7 +720,7 @@ struct HomeView: View {
                 .padding(.bottom, 6)
             }
         }
-        .animation(animationsEnabled ? .easeInOut : .none, value: concentrations.count)
+        .animation(reduceMotion ? .none : .easeInOut, value: concentrations.count)
     }
     
     // MARK: - Spectrum Helper
@@ -746,7 +745,7 @@ struct HomeView: View {
                         .frame(width: 16, height: 16)
                         .shadow(radius: 2)
                         .offset(x: xOffset)
-                        .animation(animationsEnabled ? .spring(response: 0.6, dampingFraction: 0.7) : .none, value: xOffset)
+                        .animation(reduceMotion ? .none : .spring(response: 0.6, dampingFraction: 0.7), value: xOffset)
                 }
             }
             .frame(height: 16)

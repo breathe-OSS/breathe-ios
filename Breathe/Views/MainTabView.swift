@@ -29,7 +29,7 @@ import SwiftUI
 
 @available(iOS 17.0, *)
 struct MainTabView: View {
-    @AppStorage("animationsEnabled") private var animationsEnabled = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 #if DEBUG
     @State private var selectedTab = UserDefaults.standard.integer(forKey: "initialTab")
 #else
@@ -62,7 +62,7 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
-        .animation(animationsEnabled ? .snappy(duration: 0.25) : .none, value: selectedTab)
+        .animation(reduceMotion ? .none : .snappy(duration: 0.25), value: selectedTab)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
             selectedTab = 0
         }

@@ -50,7 +50,7 @@ struct WelcomeView: View {
     let worstEntries: [SnapshotEntry]
     let bestEntries: [SnapshotEntry]
     let isUsAqi: Bool
-    let animationsEnabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onSelect: (Zone) -> Void
     let onBrowse: () -> Void
 
@@ -95,7 +95,6 @@ struct WelcomeView: View {
                         systemImage: "exclamationmark.triangle.fill",
                         entries: worstEntries,
                         isUsAqi: isUsAqi,
-                        animationsEnabled: animationsEnabled,
                         delayOffset: 0,
                         onSelect: onSelect
                     )
@@ -105,7 +104,6 @@ struct WelcomeView: View {
                         systemImage: "wind",
                         entries: bestEntries,
                         isUsAqi: isUsAqi,
-                        animationsEnabled: animationsEnabled,
                         delayOffset: worstEntries.count,
                         onSelect: onSelect
                     )
@@ -127,7 +125,7 @@ struct WelcomeView: View {
         }
         .interactiveDismissDisabled()
         .onAppear {
-            if animationsEnabled {
+            if !reduceMotion {
                 withAnimation(.spring(response: 0.55, dampingFraction: 0.8)) {
                     hasAppeared = true
                 }
@@ -146,7 +144,7 @@ private struct SnapshotCard: View {
     let systemImage: String
     let entries: [SnapshotEntry]
     let isUsAqi: Bool
-    let animationsEnabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let delayOffset: Int
     let onSelect: (Zone) -> Void
 
@@ -162,7 +160,6 @@ private struct SnapshotCard: View {
                 SnapshotRow(
                     entry: entry,
                     isUsAqi: isUsAqi,
-                    animationsEnabled: animationsEnabled,
                     delay: Double(delayOffset + index) * 0.07,
                     onSelect: onSelect
                 )
@@ -180,7 +177,7 @@ private struct SnapshotCard: View {
 private struct SnapshotRow: View {
     let entry: SnapshotEntry
     let isUsAqi: Bool
-    let animationsEnabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let delay: Double
     let onSelect: (Zone) -> Void
 
@@ -211,7 +208,7 @@ private struct SnapshotRow: View {
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 16)
         .onAppear {
-            if animationsEnabled {
+            if !reduceMotion {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(delay)) {
                     hasAppeared = true
                 }

@@ -49,7 +49,7 @@ struct MapBubble: Identifiable {
     // a zone whose numbers haven't come back yet, as opposed to an offline sensor
     let isLoading: Bool
     let isLive: Bool
-    // modelled zones get a dashed ring when they sit among real sensors
+    // modelled zones are drawn as a ring when they sit among real sensors
     let isModelled: Bool
     let target: Target
     // how many bubbles were folded into this one, shown as a badge above 1
@@ -575,59 +575,86 @@ struct MapBubbleView: View {
     let bubble: MapBubble
     let isUsAqi: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let size: CGFloat = 34
+
     var body: some View {
-        let color = mapAqiColor(bubble.aqi, isUsAqi: isUsAqi)
-
-        ZStack {
-            Circle()
-                .fill(color)
-                .frame(width: 32, height: 32)
-                .overlay(
-                    Circle().stroke(
-                        Color.white,
-                        style: bubble.isModelled
-                            ? StrokeStyle(lineWidth: 2.5, dash: [3, 2.5])
-                            : StrokeStyle(lineWidth: 2.5)
-                    )
-                )
-                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-
-            if let aqi = bubble.aqi {
-                Text("\(aqi)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(mapAqiTextColor(aqi, isUsAqi: isUsAqi))
-            } else if bubble.isLoading {
-                ProgressView()
-                    .scaleEffect(0.6)
-            }
-
-            if bubble.isLive {
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
-                    .offset(x: 12, y: -12)
-            }
+        ZStack(alignment: .topTrailing) {
+            bubbleBody
+                .frame(width: size, height: size)
+                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
 
             if bubble.count > 1 {
                 Text("\(bubble.count)")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
-                    .frame(minWidth: 14, minHeight: 14)
-                    .background(Circle().fill(Color.white))
-                    .offset(x: 12, y: 12)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 5)
+                    .frame(minWidth: 18, minHeight: 18)
+                    .background(Capsule().fill(Color(.systemBackground)))
+                    .overlay(Capsule().stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
+                    .offset(x: 8, y: -6)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
     }
-}
 
-func mapAqiColor(_ value: Int?, isUsAqi: Bool) -> Color {
-    guard let value = value else {
-        return .gray
+    @ViewBuilder
+    private var bubbleBody: some View {
+        if let aqi = bubble.aqi {
+            let color = AqiPalette.color(aqi, isUsAqi: isUsAqi)
+            if bubble.isModelled {
+                Circle()
+                    .fill(Color(.systemBackground))
+                    .overlay(Circle().fill(color.opacity(colorScheme == .dark ? 0.3 : 0.2)))
+                    .overlay(Circle().strokeBorder(color, lineWidth: 3))
+                    .overlay(
+                        Text("\(aqi)")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                    )
+            } else {
+                Circle()
+                    .fill(color)
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5))
+                    .overlay(
+                        Text("\(aqi)")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: isUsAqi))
+                    )
+            }
+        } else if bubble.isLoading {
+            Circle()
+                .fill(Color(.systemGray4))
+                .overlay(ProgressView().scaleEffect(0.6))
+        } else {
+            Circle()
+                .fill(Color(.systemGray))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5))
+                .overlay(
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+        }
     }
-    return AqiPalette.color(value, isUsAqi: isUsAqi)
-}
 
-func mapAqiTextColor(_ value: Int, isUsAqi: Bool) -> Color {
-    AqiPalette.onColor(value, isUsAqi: isUsAqi)
+    private var accessibilityText: String {
+        var parts: [String] = []
+        if let aqi = bubble.aqi {
+            parts.append("AQI \(aqi), \(AqiPalette.label(aqi, isUsAqi: isUsAqi))")
+        } else if bubble.isLoading {
+            parts.append("Loading")
+        } else {
+            parts.append("Sensor offline")
+        }
+        if bubble.isModelled {
+            parts.append("modelled")
+        }
+        if bubble.count > 1 {
+            parts.append("\(bubble.count) places, tap to zoom in")
+        }
+        return parts.joined(separator: ", ")
+    }
 }

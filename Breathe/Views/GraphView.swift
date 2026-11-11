@@ -266,11 +266,7 @@ struct GraphView: View {
                 }
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(chartCardBackground)
-        )
+        .card()
         .onChange(of: selectedNodeName) { _ in
             selectedPoint = nil
         }

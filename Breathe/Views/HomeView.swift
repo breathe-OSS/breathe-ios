@@ -559,55 +559,44 @@ struct HomeView: View {
     @ViewBuilder
     private func historySection(history: [HistoryPoint]?, nodes: [String: NodeReading]? = nil, isAirGradient: Bool = false) -> some View {
         if let history, !history.isEmpty {
+            HStack {
+                SectionHeader(title: "Last 24 Hours")
+
+                Picker("History style", selection: $historyPage) {
+                    Text("Chart").tag(0)
+                    Text("Dots").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+            .padding(.top, 8)
+            .id("history")
+
             TabView(selection: $historyPage) {
                 GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
-                    .padding(.horizontal, 8)
                     .tag(0)
                 DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
-                    .padding(.horizontal, 8)
                     .tag(1)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 300)
-            .id("history")
-            .padding(.vertical, 10)
-            .padding(.horizontal, -8)
 
-            HStack(spacing: 8) {
-                ForEach(0..<2, id: \.self) { index in
-                    Circle()
-                        .fill(index == historyPage ? Color.primary : Color.secondary.opacity(0.4))
-                        .frame(width: 7, height: 7)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .animation(.easeInOut(duration: 0.2), value: historyPage)
-
-            Text("Swipe for Dots History")
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 2)
-
-            // Extended History is backed by AirGradient ground sensor data, so it is
-            // redundant on Open-Meteo only zones.
             if isAirGradient {
                 NavigationLink {
                     extendedHistoryView(nodes: nodes)
                 } label: {
                     HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                        Text("View Extended History")
+                        Label("Extended History", systemImage: "clock.arrow.circlepath")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.tertiary)
                     }
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.accentColor, lineWidth: 1)
-                    )
+                    .card()
                 }
+                .buttonStyle(.plain)
             }
         }
     }

@@ -114,11 +114,7 @@ struct DotHistoryView: View {
                     .padding(.top, 4)
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(chartCardBackground)
-        )
+        .card()
     }
 
     private var legend: some View {
@@ -140,16 +136,6 @@ struct DotHistoryView: View {
 
     private var legendReps: [Int] {
         AqiPalette.samples(isUsAqi: isUsAqi)
-    }
-
-    private var chartCardBackground: Color {
-#if os(iOS)
-        return Color(.secondarySystemBackground)
-#elseif os(macOS)
-        return Color(nsColor: .windowBackgroundColor)
-#else
-        return Color.gray.opacity(0.15)
-#endif
     }
 
     private func aqiColor(_ value: Int) -> Color {

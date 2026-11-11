@@ -25,120 +25,80 @@
  */
 
 import SwiftUI
+import Charts
 
 struct DotHistoryView: View {
     let history: [HistoryPoint]
     let isUsAqi: Bool
 
-    @State private var selectedIndex: Int? = nil
-
-    private static let hourFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:00"
-        return formatter
-    }()
-
-    private var points: [HistoryPoint] {
-        history.sorted { $0.ts < $1.ts }
-    }
-
-    private func value(at index: Int) -> Int {
-        let point = points[index]
-        return isUsAqi ? (point.usAqi ?? point.aqi) : point.aqi
-    }
-
-    private func hourLabel(_ index: Int) -> String {
-        Self.hourFormatter.string(from: Date(timeIntervalSince1970: TimeInterval(points[index].ts)))
-    }
+    @State private var selectedDate: Date? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("24-Hour Trend")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+        let samples = aqiSamples(history, isUsAqi: isUsAqi)
+        let selected = closestSample(to: selectedDate, in: samples)
+        let peak = samples.max { $0.value < $1.value }
+        let shown = selected ?? peak
 
-                Spacer()
-
-                if let index = selectedIndex, points.indices.contains(index) {
-                    Text("AQI \(value(at: index))  ·  \(hourLabel(index))")
-                        .font(.system(.caption, design: .rounded))
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                } else {
-                    Text("Tap a bar for details")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            if let shown {
+                ChartReadout(
+                    caption: selected == nil ? "Peak" : "Selected",
+                    value: "\(shown.value)",
+                    detail: shown.date.formatted(.dateTime.hour().minute()),
+                    tint: AqiPalette.color(shown.value, isUsAqi: isUsAqi)
+                ) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Category")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(AqiPalette.label(shown.value, isUsAqi: isUsAqi))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(2)
+                    }
                 }
             }
 
-            if points.isEmpty {
-                Text("No data available for the last 24 hours.")
+            if samples.isEmpty {
+                Text("No data for the last 24 hours.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .frame(height: 150)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 160)
             } else {
-                HStack(spacing: 3) {
-                    ForEach(points.indices, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(aqiColor(value(at: index)))
-                            .frame(maxWidth: .infinity)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .strokeBorder(Color.primary, lineWidth: 1.5)
-                                    .opacity(selectedIndex == index ? 1 : 0)
-                            )
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.1)) {
-                                    selectedIndex = selectedIndex == index ? nil : index
-                                }
-                            }
+                Chart(samples) { sample in
+                    BarMark(
+                        x: .value("Hour", sample.date, unit: .hour),
+                        y: .value("AQI", sample.value),
+                        width: .ratio(0.72)
+                    )
+                    .cornerRadius(3)
+                    .foregroundStyle(AqiPalette.color(sample.value, isUsAqi: isUsAqi))
+                    .opacity(selected == nil || selected?.date == sample.date ? 1 : 0.35)
+                }
+                .chartXSelection(value: $selectedDate)
+                .chartYAxis {
+                    AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
+                            .foregroundStyle(Color.secondary.opacity(0.4))
+                        AxisValueLabel()
+                            .font(.caption2)
                     }
                 }
-                .frame(height: 120)
-
-                HStack {
-                    Text(hourLabel(0))
-                    Spacer()
-                    if points.count > 2 {
-                        Text(hourLabel(points.count / 2))
-                        Spacer()
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
+                        AxisValueLabel(format: .dateTime.hour())
+                            .font(.caption2)
                     }
-                    Text(hourLabel(points.count - 1))
                 }
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(.secondary)
+                .frame(height: 160)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Hourly AQI over the last 24 hours")
+                .accessibilityValue("Peak \(peak?.value ?? 0)")
 
-                legend
-                    .padding(.top, 4)
+                AqiLegend(isUsAqi: isUsAqi)
             }
         }
         .card()
-    }
-
-    private var legend: some View {
-        HStack(spacing: 6) {
-            Text("Good")
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(.secondary)
-            ForEach(legendReps, id: \.self) { rep in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(aqiColor(rep))
-                    .frame(width: 16, height: 6)
-            }
-            Text(isUsAqi ? "Hazardous" : "Severe")
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var legendReps: [Int] {
-        AqiPalette.samples(isUsAqi: isUsAqi)
-    }
-
-    private func aqiColor(_ value: Int) -> Color {
-        AqiPalette.color(value, isUsAqi: isUsAqi)
     }
 }

@@ -563,8 +563,8 @@ struct HomeView: View {
                 SectionHeader(title: "Last 24 Hours")
 
                 Picker("History style", selection: $historyPage) {
-                    Text("Chart").tag(0)
-                    Text("Dots").tag(1)
+                    Text("Trend").tag(0)
+                    Text("Hourly").tag(1)
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
@@ -572,14 +572,14 @@ struct HomeView: View {
             .padding(.top, 8)
             .id("history")
 
-            TabView(selection: $historyPage) {
-                GraphView(history: history, isUsAqi: viewModel.isUsAqi, nodes: nodes)
-                    .tag(0)
-                DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
-                    .tag(1)
+            Group {
+                if historyPage == 0 {
+                    GraphView(history: history, isUsAqi: viewModel.isUsAqi)
+                } else {
+                    DotHistoryView(history: history, isUsAqi: viewModel.isUsAqi)
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 300)
+            .animation(reduceMotion ? .none : .snappy, value: historyPage)
 
             if isAirGradient {
                 NavigationLink {

@@ -83,6 +83,33 @@ enum AqiPalette {
         isUsAqi ? [25, 75, 125, 175, 250, 400] : [25, 75, 150, 250, 350, 450]
     }
 
+    static func bands(isUsAqi: Bool) -> [AqiBand] {
+        let steps = isUsAqi ? usSteps : naqiSteps
+        var lower = 0
+        return steps.map { entry in
+            let upper = min(entry.upper, 500)
+            let band = AqiBand(lower: lower, upper: upper, color: Color(hex: entry.hex), label: entry.label)
+            lower = upper
+            return band
+        }
+    }
+
+    static func lineGradient(low: Int, high: Int, isUsAqi: Bool) -> LinearGradient {
+        guard high > low else {
+            let color = AqiPalette.color(high, isUsAqi: isUsAqi)
+            return LinearGradient(colors: [color, color], startPoint: .top, endPoint: .bottom)
+        }
+        let span = Double(high - low)
+        var stops: [Gradient.Stop] = [Gradient.Stop(color: color(high, isUsAqi: isUsAqi), location: 0)]
+        for band in bands(isUsAqi: isUsAqi).reversed() where band.lower > low && band.lower < high {
+            let location = Double(high - band.lower) / span
+            stops.append(Gradient.Stop(color: band.color, location: location))
+            stops.append(Gradient.Stop(color: color(band.lower, isUsAqi: isUsAqi), location: location))
+        }
+        stops.append(Gradient.Stop(color: color(low, isUsAqi: isUsAqi), location: 1))
+        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+    }
+
     static func gradientStops(isUsAqi: Bool) -> [Gradient.Stop] {
         let steps = isUsAqi ? usSteps : naqiSteps
         var lower = 0
@@ -94,6 +121,20 @@ enum AqiPalette {
             return stop
         }
     }
+}
+
+struct AqiBand: Identifiable {
+    let lower: Int
+    let upper: Int
+    let color: Color
+    let label: String
+
+    var id: Int { lower }
+}
+
+enum SeriesPalette {
+    static let pm25 = Color.blue
+    static let pm10 = Color.purple
 }
 
 struct CardModifier: ViewModifier {

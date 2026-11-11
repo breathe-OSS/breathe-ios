@@ -69,6 +69,7 @@ struct SearchView: View {
             .task {
                 await viewModel.fetchAllAqiData()
             }
+            .sensoryFeedback(.impact(weight: .light), trigger: viewModel.pinnedZoneIds)
         }
     }
 
@@ -232,6 +233,17 @@ struct SearchView: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isPinned)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button {
+                viewModel.togglePin(for: zone)
+            } label: {
+                Label(isPinned ? "Unpin" : "Pin", systemImage: isPinned ? "pin.slash" : "pin")
+            }
+            .tint(isPinned ? .gray : .accentColor)
+        }
+        .contextMenu {
+            zoneMenu(zone, isPinned: isPinned)
+        }
     }
 
     @ViewBuilder
@@ -274,5 +286,23 @@ struct SearchView: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isPinned)
+        .contextMenu {
+            zoneMenu(zone, isPinned: isPinned)
+        }
+    }
+
+    @ViewBuilder
+    private func zoneMenu(_ zone: Zone, isPinned: Bool) -> some View {
+        Button {
+            viewModel.selectedZone = zone
+            NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
+        } label: {
+            Label("View on Home", systemImage: "house")
+        }
+        Button {
+            viewModel.togglePin(for: zone)
+        } label: {
+            Label(isPinned ? "Unpin" : "Pin to Home", systemImage: isPinned ? "pin.slash" : "pin")
+        }
     }
 }

@@ -365,6 +365,20 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            Button(role: .destructive) {
+                viewModel.togglePin(for: zone)
+            } label: {
+                Label("Unpin", systemImage: "pin.slash")
+            }
+            if viewModel.pinnedZones.count > 1 {
+                Button {
+                    showReorderSheet = true
+                } label: {
+                    Label("Reorder Pinned", systemImage: "arrow.up.arrow.down")
+                }
+            }
+        }
         .id(zone.id)
     }
 

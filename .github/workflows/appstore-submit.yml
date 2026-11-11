@@ -19,6 +19,14 @@ on:
         description: Comma separated screenshot names from that run, in display order
         required: true
         default: home-light,home-dark,search-light,search-dark,settings-light
+      iphone_screenshots_run_id:
+        description: Run ID of the Simulator Screenshots workflow for iphone- names, empty for none
+        required: false
+        default: ""
+      overwrite_screenshots:
+        description: Delete the screenshots already in App Store Connect before uploading
+        type: boolean
+        default: false
       locale:
         description: App Store locale
         required: true
@@ -46,6 +54,14 @@ jobs:
           github-token: ${{ github.token }}
           path: artifact
 
+      - name: Download iPhone screenshots
+        if: inputs.iphone_screenshots_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.iphone_screenshots_run_id }}
+          github-token: ${{ github.token }}
+          path: artifact/iphone
+
       - name: Prepare metadata
         env:
           LOCALE: ${{ inputs.locale }}
@@ -66,7 +82,7 @@ jobs:
             cp "$src" "$dest"
             width=$(sips -g pixelWidth "$dest" | awk '/pixelWidth/ {print $2}')
             height=$(sips -g pixelHeight "$dest" | awk '/pixelHeight/ {print $2}')
-            if [ "$height" -gt "$width" ]; then
+            if [ "$height" -gt "$width" ] && [[ "$name" != iphone-* ]]; then
               sips -r 90 "$dest"
             fi
             i=$((i + 1))
@@ -143,6 +159,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           BUILD: ${{ inputs.build }}
           SKIP_SCREENSHOTS: ${{ inputs.skip_screenshots }}
+          OVERWRITE_SCREENSHOTS: ${{ inputs.overwrite_screenshots }}
         run: |
           fastlane deliver \
             --api_key_path "$RUNNER_TEMP/asc_key.json" \
@@ -154,7 +171,7 @@ jobs:
             --metadata_path fastlane/metadata \
             --screenshots_path fastlane/screenshots \
             --skip_screenshots "$SKIP_SCREENSHOTS" \
-            --overwrite_screenshots false \
+            --overwrite_screenshots "$OVERWRITE_SCREENSHOTS" \
             --run_precheck_before_submit false \
             --submit_for_review true \
             --automatic_release true \

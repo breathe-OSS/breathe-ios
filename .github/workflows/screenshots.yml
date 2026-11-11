@@ -46,7 +46,7 @@ jobs:
 
       - name: Pick pinned zones
         run: |
-          PINNED=$(curl -sf https://api.breatheoss.app/zones | jq -c '[.zones[] | select(.provider == "airgradient") | .id][:3]')
+          PINNED='["srinagar","kargil_town","jammu_city"]'
           echo "Pinned zones $PINNED"
           echo "PINNED_HEX=$(printf '%s' "$PINNED" | xxd -p | tr -d '\n')" >> "$GITHUB_ENV"
 
@@ -84,18 +84,38 @@ jobs:
 
           shoot() {
             local udid=$1 name=$2 tab=$3
+            shift 3
             xcrun simctl terminate "$udid" "$BUNDLE_ID" 2>/dev/null || true
             xcrun simctl launch "$udid" "$BUNDLE_ID" \
               -initialTab "$tab" \
               -has_onboarded YES \
-              -pinned_zones "<$PINNED_HEX>"
+              -pinned_zones "<$PINNED_HEX>" \
+              "$@"
             sleep 15
             xcrun simctl io "$udid" screenshot "shots/$name.png"
           }
 
+          shoot_iphone_set() {
+            local udid=$1 label=$2 mode=$3
+            shoot "$udid" "$label-home-$mode" 0 -shotZone srinagar
+            shoot "$udid" "$label-home-nodes-$mode" 0 -shotZone srinagar -shotScroll nodes
+            shoot "$udid" "$label-home-history-$mode" 0 -shotZone srinagar -shotScroll history
+            shoot "$udid" "$label-home-hourly-$mode" 0 -shotZone srinagar -shotScroll history -shotHistory hourly
+            shoot "$udid" "$label-node-live-$mode" 0 -shotZone srinagar -shotSheet node
+            shoot "$udid" "$label-node-offline-$mode" 0 -shotZone kargil_town -shotSheet offlineNode
+            shoot "$udid" "$label-extended-history-$mode" 0 -shotZone srinagar -shotScreen extendedHistory
+            shoot "$udid" "$label-map-sensors-$mode" 1
+            shoot "$udid" "$label-map-districts-$mode" 1 -shotLayer districts
+            shoot "$udid" "$label-map-zone-$mode" 1 -shotZone srinagar -shotSheet zone
+            shoot "$udid" "$label-search-$mode" 2
+            shoot "$udid" "$label-settings-$mode" 3
+            shoot "$udid" "$label-settings-bottom-$mode" 3 -shotScroll bottom
+            shoot "$udid" "$label-data-sources-$mode" 3 -shotScreen dataSources
+          }
+
           run_device() {
-            local label=$1
-            shift
+            local label=$1 full=$2
+            shift 2
             local udid
             udid=$(pick_device "$@")
             if [ -z "$udid" ]; then
@@ -108,25 +128,39 @@ jobs:
             xcrun simctl install "$udid" "$APP_PATH"
             seed_prefs "$udid"
 
-            xcrun simctl ui "$udid" appearance light
-            shoot "$udid" "$label-home-light" 0
-            shoot "$udid" "$label-map-light" 1
-            shoot "$udid" "$label-search-light" 2
-            shoot "$udid" "$label-settings-light" 3
+            if [ "$full" = yes ]; then
+              xcrun simctl ui "$udid" appearance light
+              shoot_iphone_set "$udid" "$label" light
+              xcrun simctl ui "$udid" appearance dark
+              shoot_iphone_set "$udid" "$label" dark
+            else
+              xcrun simctl ui "$udid" appearance light
+              shoot "$udid" "$label-home-light" 0 -shotZone srinagar
+              shoot "$udid" "$label-map-light" 1
+              shoot "$udid" "$label-search-light" 2
+              shoot "$udid" "$label-settings-light" 3
 
-            xcrun simctl ui "$udid" appearance dark
-            shoot "$udid" "$label-home-dark" 0
-            shoot "$udid" "$label-search-dark" 2
+              xcrun simctl ui "$udid" appearance dark
+              shoot "$udid" "$label-home-dark" 0 -shotZone srinagar
+              shoot "$udid" "$label-search-dark" 2
+            fi
 
             xcrun simctl ui "$udid" content_size accessibility-extra-large
-            shoot "$udid" "$label-home-dark-largetext" 0
+            shoot "$udid" "$label-home-dark-largetext" 0 -shotZone srinagar
             xcrun simctl ui "$udid" content_size large
 
             xcrun simctl shutdown "$udid"
           }
 
-          run_device ipad "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad"
-          run_device iphone "iPhone 17 Pro Max" "iPhone 16 Pro Max" "iPhone"
+          run_device ipad no "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad"
+          run_device iphone yes "iPhone 17 Pro Max" "iPhone 16 Pro Max" "iPhone"
+
+      - name: Collect crash logs
+        if: always()
+        run: |
+          mkdir -p shots/crashes
+          find ~/Library/Logs/DiagnosticReports -name '*Breathe*' -print0 2>/dev/null | xargs -0 -I{} cp {} shots/crashes/ || true
+          ls shots/crashes
 
       - name: Upload screenshots
         if: always()

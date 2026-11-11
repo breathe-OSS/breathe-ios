@@ -185,13 +185,53 @@ struct HomeView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            if !showOverviewGrid,
-               let aqi = viewModel.displayAqi,
-               let response = viewModel.currentAqi {
-                aqiSection(aqi: aqi, response: response)
+            if !showOverviewGrid {
+                if let aqi = viewModel.displayAqi,
+                   let response = viewModel.currentAqi,
+                   response.zoneId == viewModel.selectedZone?.id {
+                    aqiSection(aqi: aqi, response: response)
+                } else if let error = viewModel.error {
+                    errorCard(error)
+                } else if let zone = viewModel.selectedZone {
+                    loadingCard(zone)
+                }
             }
         }
         .padding()
+    }
+
+    private func loadingCard(_ zone: Zone) -> some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Loading \(zone.name)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 200)
+        .card()
+    }
+
+    private func errorCard(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Couldn't load air quality", systemImage: "wifi.exclamationmark")
+                .font(.headline)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Button {
+                viewModel.dismissError()
+                Task {
+                    await viewModel.refresh()
+                }
+            } label: {
+                Text("Try Again")
+                    .fontWeight(.semibold)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .card()
     }
 
     @ViewBuilder

@@ -61,6 +61,9 @@ final class BreatheViewModel: ObservableObject {
             }
             WidgetCenter.shared.reloadAllTimelines()
             guard let zone = selectedZone else { return }
+            if let cached = allAqiData[zone.id] {
+                currentAqi = cached
+            }
             Task { await fetchAqi(for: zone, isMapSelection: false) }
         }
     }

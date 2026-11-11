@@ -55,8 +55,8 @@ struct HomeView: View {
 #endif
     
     let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
     ]
     
     func calculateCigarettes(pm25: Double) -> Double {
@@ -532,10 +532,8 @@ struct HomeView: View {
 
     @ViewBuilder
     private func concentrationsSection(concentrations: [String: Double]?) -> some View {
-        Text("Concentrations")
-            .font(.system(.title, design: .rounded))
-            .fontWeight(.semibold)
-            .padding(.top, 10)
+        SectionHeader(title: "Concentrations")
+            .padding(.top, 8)
             .id("concentrations")
 
         if let concentrations, !concentrations.isEmpty {
@@ -638,48 +636,51 @@ struct HomeView: View {
 
     @ViewBuilder
     private func pollutantGrid(concentrations: [String: Double]) -> some View {
-        LazyVGrid(columns: columns, spacing: 2) {
+        LazyVGrid(columns: columns, spacing: 12) {
             ForEach(concentrations.sorted { $0.key < $1.key }, id: \.key) { key, value in
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color(.systemFill).opacity(0.4))
+                VStack(alignment: .leading, spacing: 6) {
+                    PollutantLabel(raw: key, style: .subheadline, weight: .medium)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
 
-                    HStack {
-                        PollutantLabel(raw: key, style: .headline)
-                            .foregroundStyle(.primary.opacity(0.6))
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(formatConcentration(value))
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
                             .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .allowsTightening(true)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            .minimumScaleFactor(0.7)
 
-                        Spacer()
-
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(String(format: "%.2f", value))
-                                .font(.system(.title, design: .rounded))
-                                .fontWeight(.bold)
-                                .monospacedDigit()
-                                .foregroundStyle(.primary)
-
-                            let unit = (key.lowercased() == "ch4" || key.lowercased() == "co") ? "mg/m³" : "µg/m³"
-
-                            Text(unit)
-                                .font(.system(.footnote, design: .rounded))
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(concentrationUnit(key))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .padding()
                 }
-                .frame(maxWidth: .infinity, minHeight: 72)
-                .onTapGesture { }
-                .padding(.bottom, 6)
+                .card(padding: 14)
+                .accessibilityElement(children: .combine)
             }
         }
         .animation(reduceMotion ? .none : .easeInOut, value: concentrations.count)
     }
-    
+
+    private func formatConcentration(_ value: Double) -> String {
+        if value >= 100 {
+            return String(format: "%.0f", value)
+        }
+        if value >= 10 {
+            return String(format: "%.1f", value)
+        }
+        return String(format: "%.2f", value)
+    }
+
+    private func concentrationUnit(_ key: String) -> String {
+        let lower = key.lowercased()
+        if lower == "ch4" || lower == "co" {
+            return "mg/m³"
+        }
+        return "µg/m³"
+    }
+
     // MARK: - Spectrum Helper
     @ViewBuilder
     private func setGaugeSpectrum(position: Double) -> some View {

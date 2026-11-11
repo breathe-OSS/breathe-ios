@@ -26,6 +26,7 @@
 
 import SwiftUI
 
+@MainActor
 struct CountingText: View, Animatable {
     var value: Double
 

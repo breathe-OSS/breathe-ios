@@ -60,13 +60,8 @@ struct MapBubble: Identifiable {
 struct MapView: View {
     @EnvironmentObject private var viewModel: BreatheViewModel
 
-    // Default region covering J&K and Ladakh
-    @State private var cameraPosition = MapCameraPosition.region(
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 34.75, longitude: 76.5),
-            span: MKCoordinateSpan(latitudeDelta: 6.0, longitudeDelta: 9.0)
-        )
-    )
+    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var hasFramedZones = false
 #if DEBUG
     @State private var layer: MapLayer = ShotHooks.mapLayer == "districts" ? .districts : .sensors
 #else
@@ -142,6 +137,7 @@ struct MapView: View {
                     }
                 }
             }
+            .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
             .onMapCameraChange(frequency: .onEnd) { context in
                 visibleRegion = context.region
             }
@@ -155,7 +151,7 @@ struct MapView: View {
                 }
             )
             .ignoresSafeArea()
-            .navigationTitle("Map")
+            .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top) {
                 Picker("Map layer", selection: $layer) {
                     ForEach(MapLayer.allCases) { entry in
@@ -169,9 +165,13 @@ struct MapView: View {
                 .padding(.top, 8)
             }
             .onAppear {
+                frameZonesOnce()
                 Task {
                     await viewModel.fetchAllAqiData()
                 }
+            }
+            .onChange(of: viewModel.zones.count) { _, _ in
+                frameZonesOnce()
             }
             .overlay(alignment: .bottom) {
                 if let zone = viewModel.selectedMapZone {
@@ -217,9 +217,26 @@ struct MapView: View {
         }
     }
 
+    private func frameZonesOnce() {
+        guard !hasFramedZones else {
+            return
+        }
+        let coordinates = viewModel.zones.compactMap { zone -> CLLocationCoordinate2D? in
+            guard let lat = zone.lat, let lon = zone.lon else {
+                return nil
+            }
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+        guard !coordinates.isEmpty else {
+            return
+        }
+        hasFramedZones = true
+        zoomToFit(coordinates, margin: 1.25, animated: false)
+    }
+
     // frames every member with some room around it, which is enough zoom to
     // pull the group apart
-    private func zoomToFit(_ coordinates: [CLLocationCoordinate2D]) {
+    private func zoomToFit(_ coordinates: [CLLocationCoordinate2D], margin: Double = 1.8, animated: Bool = true) {
         let lats = coordinates.map(\.latitude)
         let lons = coordinates.map(\.longitude)
         guard let minLat = lats.min(), let maxLat = lats.max(),
@@ -229,11 +246,15 @@ struct MapView: View {
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2),
             span: MKCoordinateSpan(
-                latitudeDelta: max((maxLat - minLat) * 1.8, 0.05),
-                longitudeDelta: max((maxLon - minLon) * 1.8, 0.05)
+                latitudeDelta: max((maxLat - minLat) * margin, 0.05),
+                longitudeDelta: max((maxLon - minLon) * margin, 0.05)
             )
         )
-        withAnimation(.snappy(duration: 0.5)) {
+        if animated {
+            withAnimation(.snappy(duration: 0.5)) {
+                cameraPosition = .region(region)
+            }
+        } else {
             cameraPosition = .region(region)
         }
     }

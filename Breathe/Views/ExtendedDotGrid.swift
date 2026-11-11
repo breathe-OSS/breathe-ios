@@ -84,18 +84,19 @@ struct ExtendedDotGrid: View {
         let model = prepare()
 
         return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(model.hourly ? "By Day and Hour" : "Daily Average")
-                    .font(.system(.headline, design: .rounded))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.hourly ? "By day and hour" : "Daily average")
+                    .font(.caption)
+                    .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
 
-                Spacer()
-
-                Text(selectedLabel ?? "Tap a cell for details")
-                    .font(.system(.caption, design: .rounded))
+                Text(selectedLabel ?? "Tap a cell for its reading")
+                    .font(.subheadline)
                     .fontWeight(selectedLabel == nil ? .regular : .semibold)
                     .foregroundStyle(selectedLabel == nil ? .secondary : .primary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             if model.days.isEmpty {
@@ -110,14 +111,9 @@ struct ExtendedDotGrid: View {
                 calendarGrid(model)
             }
 
-            legend
+            AqiLegend(isUsAqi: true)
                 .padding(.top, 4)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(.secondarySystemBackground))
-        )
     }
 
     // MARK: - Punch Card (day x hour)
@@ -139,7 +135,7 @@ struct ExtendedDotGrid: View {
                             label: "\(cellValues(day.pm25[hour], day.pm10[hour]))  ·  \(Self.weekdayFormatter.string(from: day.dayStart)) \(String(format: "%02d:00", hour))"
                         )
                         .frame(maxWidth: .infinity)
-                        .frame(height: 14)
+                        .frame(height: 16)
                     }
                 }
             }
@@ -204,10 +200,10 @@ struct ExtendedDotGrid: View {
 
     @ViewBuilder
     private func cell(id: String, aqi: Int?, label: String) -> some View {
-        RoundedRectangle(cornerRadius: 3)
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
             .fill(aqi.map { usAqiColor($0) } ?? Color(.tertiarySystemFill))
             .overlay(
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(Color.primary, lineWidth: 1.5)
                     .opacity(selectedID == id ? 1 : 0)
             )
@@ -224,23 +220,6 @@ struct ExtendedDotGrid: View {
                     }
                 }
             }
-    }
-
-    private var legend: some View {
-        HStack(spacing: 6) {
-            Text("Good")
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(.secondary)
-            ForEach([25, 75, 125, 175, 250, 400], id: \.self) { rep in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(usAqiColor(rep))
-                    .frame(width: 16, height: 6)
-            }
-            Text("Hazardous")
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Model

@@ -27,235 +27,206 @@
 import SwiftUI
 import Charts
 
+private struct SeriesPoint: Identifiable {
+    let date: Date
+    let value: Double
+    let series: String
+
+    var id: String { "\(series)-\(date.timeIntervalSince1970)" }
+}
+
 struct ExtendedHistoryView: View {
     let zoneName: String
     let nodeKeys: [String]
 
     @EnvironmentObject private var viewModel: BreatheViewModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let pm25Color = Color(red: 168/255, green: 199/255, blue: 250/255)
-    private let pm10Color = Color(red: 216/255, green: 180/255, blue: 254/255)
-    private let pm25SelectedColor = Color(red: 59/255, green: 110/255, blue: 220/255)
-    private let pm10SelectedColor = Color(red: 140/255, green: 70/255, blue: 210/255)
+    @State private var selectedDate: Date? = nil
+    @State private var chartMode = 0
 
-    @State private var selectedDataPoint: HistoricalDataPoint? = nil
-    @State private var chartPage = 0
+    private var state: HistoryState {
+        viewModel.historyState
+    }
 
     private var weatherHistory: WeatherHistory? {
-        viewModel.historyState.weatherHistory
+        state.weatherHistory
     }
 
     private var weatherGroups: [String: (sum: Double, count: Int)] {
-        weatherPm25Groups(data: viewModel.historyState.data, weather: weatherHistory)
+        weatherPm25Groups(data: state.data, weather: weatherHistory)
     }
 
     private var filteredData: [HistoricalDataPoint] {
-        filterHistoryByWeather(
-            data: viewModel.historyState.data,
-            weather: weatherHistory,
-            filter: viewModel.historyState.weatherFilter
-        )
+        filterHistoryByWeather(data: state.data, weather: weatherHistory, filter: state.weatherFilter)
+            .sorted { $0.ts < $1.ts }
     }
 
     private var impactCards: [WeatherPm25Group] {
-        weatherImpactCards(data: viewModel.historyState.data, weather: weatherHistory)
+        weatherImpactCards(data: state.data, weather: weatherHistory)
+    }
+
+    private var rangeSelection: Binding<String> {
+        Binding(
+            get: {
+                if viewModel.historyState.periodActive {
+                    return "date"
+                }
+                if viewModel.historyState.showCustomInputs {
+                    return "custom"
+                }
+                return viewModel.historyState.selectedRange
+            },
+            set: { key in
+                selectedDate = nil
+                switch key {
+                case "date":
+                    viewModel.showHistoryPeriod()
+                case "custom":
+                    if !viewModel.historyState.showCustomInputs {
+                        viewModel.toggleHistoryCustomInputs()
+                    }
+                default:
+                    viewModel.setHistoryRange(key)
+                }
+            }
+        )
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                controlsBar
-                rangeSelector
-                weatherSection
-                if let stats = viewModel.historyState.stats {
-                    statsPanel(stats: stats)
+                Picker("Range", selection: rangeSelection) {
+                    Text("1W").tag("1w")
+                    Text("1M").tag("1mo")
+                    Text("6M").tag("6mo")
+                    Text("Date").tag("date")
+                    Text("Custom").tag("custom")
                 }
-                chartSection
-                downloadButton
+                .pickerStyle(.segmented)
+
+                if state.periodActive, let period = state.period {
+                    periodCard(period: period)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                if state.showCustomInputs {
+                    customCard
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                seriesRow
+
+                if !state.isLoading, let weatherHistory, !weatherHistory.points.isEmpty {
+                    WeatherFilterChips(
+                        selectedFilter: state.weatherFilter,
+                        presentConditions: Set(weatherGroups.filter { $0.value.count > 0 }.keys),
+                        onFilterSelected: { condition in
+                            selectedDate = nil
+                            viewModel.setWeatherFilter(condition)
+                        }
+                    )
+                }
+
+                chartCard
+
+                if !state.isLoading, let stats = state.stats {
+                    statsCard(stats: stats)
+                }
+
+                if !state.isLoading, !impactCards.isEmpty {
+                    WeatherImpactPanel(cards: impactCards)
+                }
+
+                downloadRow
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 100)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
+            .animation(reduceMotion ? .none : .snappy, value: state.periodActive)
+            .animation(reduceMotion ? .none : .snappy, value: state.showCustomInputs)
+        }
+        .background(Color(.systemGroupedBackground))
+        .onChange(of: viewModel.historyState.selectedRange) { _, _ in
+            selectedDate = nil
         }
         .navigationTitle("\(zoneName) History")
         .navigationBarTitleDisplayMode(.large)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
-                    }
-                }
-            }
-        }
     }
 
-    // MARK: - Controls Bar
+    // MARK: - Controls
 
-    private var controlsBar: some View {
-        HStack(spacing: 12) {
+    private var seriesRow: some View {
+        HStack(spacing: 8) {
             if !nodeKeys.isEmpty {
                 Menu {
-                    Button {
-                        viewModel.setHistorySensor("zone")
-                    } label: {
-                        Label(
-                            "Zone Average",
-                            systemImage: viewModel.historyState.selectedSensor == "zone" ? "checkmark" : ""
-                        )
-                    }
-
-                    Divider()
-
-                    ForEach(nodeKeys, id: \.self) { key in
-                        Button {
-                            viewModel.setHistorySensor(key)
-                        } label: {
-                            Label(
-                                key,
-                                systemImage: viewModel.historyState.selectedSensor == key ? "checkmark" : ""
-                            )
+                    Picker("Sensor", selection: Binding(
+                        get: { viewModel.historyState.selectedSensor },
+                        set: { sensor in
+                            selectedDate = nil
+                            viewModel.setHistorySensor(sensor)
+                        }
+                    )) {
+                        Text("Zone average").tag("zone")
+                        ForEach(nodeKeys, id: \.self) { key in
+                            Text(key).tag(key)
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(viewModel.historyState.selectedSensor == "zone"
-                             ? "Zone Average"
-                             : viewModel.historyState.selectedSensor)
-                            .font(.system(.subheadline, design: .rounded))
+                    HStack(spacing: 6) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.caption)
+                        Text(state.selectedSensor == "zone" ? "Zone average" : state.selectedSensor)
                             .lineLimit(1)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.caption2)
                     }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
+                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
                 }
                 .tint(.primary)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            Toggle(isOn: Binding(
-                get: { viewModel.historyState.showPm25 },
-                set: { _ in viewModel.toggleHistoryPm25() }
-            )) {
-                Text("PM2.5")
-                    .font(.system(.caption, design: .rounded))
+            seriesToggle("PM2.5", color: SeriesPalette.pm25, isOn: state.showPm25) {
+                selectedDate = nil
+                viewModel.toggleHistoryPm25()
             }
-            .toggleStyle(.button)
-            .buttonStyle(.borderedProminent)
-            .tint(viewModel.historyState.showPm25 ? pm25SelectedColor : Color.secondary.opacity(0.35))
-
-            Toggle(isOn: Binding(
-                get: { viewModel.historyState.showPm10 },
-                set: { _ in viewModel.toggleHistoryPm10() }
-            )) {
-                Text("PM10")
-                    .font(.system(.caption, design: .rounded))
+            seriesToggle("PM10", color: SeriesPalette.pm10, isOn: state.showPm10) {
+                selectedDate = nil
+                viewModel.toggleHistoryPm10()
             }
-            .toggleStyle(.button)
-            .buttonStyle(.borderedProminent)
-            .tint(viewModel.historyState.showPm10 ? pm10SelectedColor : Color.secondary.opacity(0.35))
         }
     }
 
-    // MARK: - Range Selector
-
-    private var rangeSelector: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach([("1w", "1W"), ("1mo", "1M"), ("6mo", "6M")], id: \.0) { key, label in
-                    let isSelected = viewModel.historyState.selectedRange == key
-                        && !viewModel.historyState.showCustomInputs
-                        && !viewModel.historyState.periodActive
-                    Button {
-                        viewModel.setHistoryRange(key)
-                    } label: {
-                        Text(label)
-                            .font(.system(.caption, design: .rounded))
-                            .fontWeight(.medium)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(isSelected ? .accentColor : .secondary)
-                }
-
-                Button {
-                    viewModel.showHistoryPeriod()
-                } label: {
-                    Text("Date")
-                        .font(.system(.caption, design: .rounded))
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(viewModel.historyState.periodActive ? .accentColor : .secondary)
-
-                Button {
-                    viewModel.toggleHistoryCustomInputs()
-                } label: {
-                    Text("Custom")
-                        .font(.system(.caption, design: .rounded))
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(viewModel.historyState.showCustomInputs ? .accentColor : .secondary)
+    private func seriesToggle(_ label: String, color: Color, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(isOn ? color : Color.secondary.opacity(0.4))
+                    .frame(width: 8, height: 8)
+                Text(label)
             }
-
-            if viewModel.historyState.periodActive, let period = viewModel.historyState.period {
-                periodPicker(period: period)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            if viewModel.historyState.showCustomInputs {
-                HStack(spacing: 8) {
-                    TextField("Range (e.g. 14d)", text: Binding(
-                        get: { viewModel.historyState.customRange },
-                        set: { viewModel.setCustomRange($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.subheadline, design: .rounded))
-
-                    TextField("Interval (e.g. 1h)", text: Binding(
-                        get: { viewModel.historyState.customInterval },
-                        set: { viewModel.setCustomInterval($0) }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.subheadline, design: .rounded))
-
-                    Button("Apply") {
-                        viewModel.applyCustomHistory()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .font(.system(.caption, design: .rounded))
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.secondarySystemBackground))
-                )
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .foregroundStyle(isOn ? Color.primary : Color.secondary)
+            .background(
+                Capsule()
+                    .fill(isOn ? color.opacity(0.16) : Color(.secondarySystemGroupedBackground))
+            )
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.historyState.showCustomInputs)
-        .animation(.easeInOut(duration: 0.2), value: viewModel.historyState.periodActive)
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     @ViewBuilder
-    private func periodPicker(period: HistoryPeriod) -> some View {
-        let mode = viewModel.historyState.periodMode
+    private func periodCard(period: HistoryPeriod) -> some View {
+        let mode = state.periodMode
         let canStepForward = period.shifted(mode: mode, by: 1).start <= Date()
 
         VStack(spacing: 12) {
@@ -270,27 +241,24 @@ struct ExtendedHistoryView: View {
             .pickerStyle(.segmented)
 
             if mode == .days {
-                HStack {
-                    DatePicker(
-                        "From",
-                        selection: Binding(
-                            get: { period.start },
-                            set: { viewModel.pickHistoryPeriodSpan(from: $0, to: period.end) }
-                        ),
-                        in: ...Date(),
-                        displayedComponents: .date
-                    )
-                    DatePicker(
-                        "To",
-                        selection: Binding(
-                            get: { period.end },
-                            set: { viewModel.pickHistoryPeriodSpan(from: period.start, to: $0) }
-                        ),
-                        in: ...Date(),
-                        displayedComponents: .date
-                    )
-                }
-                .font(.system(.caption, design: .rounded))
+                DatePicker(
+                    "From",
+                    selection: Binding(
+                        get: { period.start },
+                        set: { viewModel.pickHistoryPeriodSpan(from: $0, to: period.end) }
+                    ),
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
+                DatePicker(
+                    "To",
+                    selection: Binding(
+                        get: { period.end },
+                        set: { viewModel.pickHistoryPeriodSpan(from: period.start, to: $0) }
+                    ),
+                    in: ...Date(),
+                    displayedComponents: .date
+                )
             } else {
                 DatePicker(
                     mode == .month ? "Month containing" : "Week containing",
@@ -301,7 +269,6 @@ struct ExtendedHistoryView: View {
                     in: ...Date(),
                     displayedComponents: .date
                 )
-                .font(.system(.subheadline, design: .rounded))
             }
 
             HStack {
@@ -309,14 +276,16 @@ struct ExtendedHistoryView: View {
                     viewModel.stepHistoryPeriod(by: -1)
                 } label: {
                     Image(systemName: "chevron.left")
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color(.tertiarySystemFill)))
                 }
                 .accessibilityLabel("Previous period")
 
                 Spacer()
 
                 Text(period.label(mode: mode))
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.medium)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
 
                 Spacer()
@@ -325,377 +294,344 @@ struct ExtendedHistoryView: View {
                     viewModel.stepHistoryPeriod(by: 1)
                 } label: {
                     Image(systemName: "chevron.right")
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color(.tertiarySystemFill)))
                 }
                 .disabled(!canStepForward)
                 .accessibilityLabel("Next period")
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .card()
     }
 
-    // MARK: - Weather Filter + Impact
-
-    @ViewBuilder
-    private var weatherSection: some View {
-        if !viewModel.historyState.isLoading,
-           let weatherHistory,
-           !weatherHistory.points.isEmpty {
-            WeatherFilterChips(
-                selectedFilter: viewModel.historyState.weatherFilter,
-                presentConditions: Set(weatherGroups.filter { $0.value.count > 0 }.keys),
-                onFilterSelected: viewModel.setWeatherFilter
-            )
-            if !impactCards.isEmpty {
-                WeatherImpactPanel(cards: impactCards)
-            }
-        }
-    }
-
-    // MARK: - Stats Panel
-
-    @ViewBuilder
-    private func statsPanel(stats: HistoricalStats) -> some View {
-        VStack(spacing: 12) {
+    private var customCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                statItem(label: "Max PM2.5", value: stats.maxPm25)
-                statItem(label: "Min PM2.5", value: stats.minPm25)
-                statItem(label: "Avg PM2.5", value: stats.avgPm25)
-            }
-            HStack(spacing: 8) {
-                statItem(label: "Max PM10", value: stats.maxPm10)
-                statItem(label: "Min PM10", value: stats.minPm10)
-                statItem(label: "Avg PM10", value: stats.avgPm10)
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
-        )
-    }
+                TextField("Range, like 14d", text: Binding(
+                    get: { viewModel.historyState.customRange },
+                    set: { viewModel.setCustomRange($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
 
-    @ViewBuilder
-    private func statItem(label: String, value: Double?) -> some View {
-        VStack(spacing: 4) {
-            Text(label)
-                .font(.system(.caption2, design: .rounded))
-                .foregroundStyle(.secondary)
-            Text(value.map { String(format: "%.1f", $0) } ?? "--")
-                .font(.system(.headline, design: .rounded))
-                .fontWeight(.bold)
+                TextField("Interval, like 1h", text: Binding(
+                    get: { viewModel.historyState.customInterval },
+                    set: { viewModel.setCustomInterval($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+            }
+
+            Button {
+                selectedDate = nil
+                viewModel.applyCustomHistory()
+            } label: {
+                Text("Apply")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
         }
-        .frame(maxWidth: .infinity)
+        .card()
     }
 
     // MARK: - Chart
 
-    @ViewBuilder
-    private var chartSection: some View {
-        if viewModel.historyState.isLoading {
-            HStack {
-                Spacer()
+    private var chartCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Picker("Chart style", selection: $chartMode) {
+                Text("Trend").tag(0)
+                Text("Calendar").tag(1)
+            }
+            .pickerStyle(.segmented)
+
+            if state.isLoading {
                 ProgressView()
-                    .frame(height: 200)
-                Spacer()
+                    .frame(maxWidth: .infinity, minHeight: 260)
+            } else if let error = state.error {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 160)
+            } else if filteredData.isEmpty {
+                Text(state.data.isEmpty ? "No readings for this selection." : "No readings during this weather.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 160)
+            } else if chartMode == 0 {
+                trendReadout
+                trendChart
+            } else {
+                ExtendedDotGrid(data: filteredData, showPm25: state.showPm25, showPm10: state.showPm10)
             }
-        } else if let error = viewModel.historyState.error {
-            Text(error)
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.red)
-                .padding()
-        } else if !filteredData.isEmpty {
-            chartPager
-        } else if !viewModel.historyState.data.isEmpty {
-            Text("No samples for this weather")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.secondary)
-                .padding()
-                .frame(maxWidth: .infinity)
-        } else {
-            Text("No readings for this selection")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(.secondary)
-                .padding()
-                .frame(maxWidth: .infinity)
         }
+        .card()
     }
 
-    private var chartPager: some View {
-        VStack(spacing: 12) {
-            TabView(selection: $chartPage) {
-                historyChart
-                    .padding(.horizontal, 8)
-                    .tag(0)
-                ExtendedDotGrid(
-                    data: filteredData,
-                    showPm25: viewModel.historyState.showPm25,
-                    showPm10: viewModel.historyState.showPm10
-                )
-                .padding(.horizontal, 8)
-                .tag(1)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 400)
-            .padding(.horizontal, -8)
+    private var selectedPoint: HistoricalDataPoint? {
+        guard let selectedDate else {
+            return nil
+        }
+        let target = selectedDate.timeIntervalSince1970
+        return filteredData.min { abs(Double($0.ts) - target) < abs(Double($1.ts) - target) }
+    }
 
-            HStack(spacing: 8) {
-                ForEach(0..<2, id: \.self) { index in
-                    Circle()
-                        .fill(index == chartPage ? Color.primary : Color.secondary.opacity(0.4))
-                        .frame(width: 7, height: 7)
+    private func average(_ values: [Double]) -> Double? {
+        guard !values.isEmpty else {
+            return nil
+        }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private var trendReadout: some View {
+        let point = selectedPoint
+        let pm25 = point.map { $0.pm25 } ?? average(filteredData.compactMap(\.pm25))
+        let pm10 = point.map { $0.pm10 } ?? average(filteredData.compactMap(\.pm10))
+        let caption = point.map {
+            Date(timeIntervalSince1970: TimeInterval($0.ts)).formatted(.dateTime.day().month(.abbreviated).hour().minute())
+        } ?? "Average over range"
+
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(caption)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            HStack(alignment: .firstTextBaseline, spacing: 20) {
+                if state.showPm25 {
+                    readoutValue("PM2.5", value: pm25, color: SeriesPalette.pm25)
                 }
+                if state.showPm10 {
+                    readoutValue("PM10", value: pm10, color: SeriesPalette.pm10)
+                }
+                Spacer(minLength: 0)
+                Text("µg/m³")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .animation(.easeInOut(duration: 0.2), value: chartPage)
+        }
+        .accessibilityElement(children: .combine)
+    }
 
-            Text("Swipe for Dots History")
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(.secondary)
+    private func readoutValue(_ label: String, value: Double?, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(value.map { String(format: "%.1f", $0) } ?? "N/A")
+                .font(.system(.title2, design: .rounded))
+                .fontWeight(.bold)
+                .monospacedDigit()
+                .contentTransition(.numericText())
         }
     }
 
-    private var historyChart: some View {
+    private var trendChart: some View {
         let data = filteredData
-        let showPm25 = viewModel.historyState.showPm25
-        let showPm10 = viewModel.historyState.showPm10
-
-        struct SeriesPoint: Identifiable {
-            let id: String
-            let date: Date
-            let value: Double
-            let series: String
-        }
-
-        let xAxisTicks: [Date] = {
-            guard let firstTs = data.map(\.ts).min(),
-                  let lastTs = data.map(\.ts).max(),
-                  lastTs > firstTs else { return [] }
-            return (0...4).map {
-                Date(timeIntervalSince1970: TimeInterval(firstTs + (lastTs - firstTs) * $0 / 4))
-            }
-        }()
+        let showPm25 = state.showPm25
+        let showPm10 = state.showPm10
+        let primary = showPm25 ? "PM2.5" : "PM10"
+        let primaryColor = showPm25 ? SeriesPalette.pm25 : SeriesPalette.pm10
 
         var points: [SeriesPoint] = []
-        for pt in data {
-            if showPm25, let v = pt.pm25 {
-                points.append(SeriesPoint(
-                    id: "\(pt.ts)-pm25",
-                    date: Date(timeIntervalSince1970: TimeInterval(pt.ts)),
-                    value: v,
-                    series: "PM2.5"
-                ))
+        for point in data {
+            let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
+            if showPm25, let value = point.pm25 {
+                points.append(SeriesPoint(date: date, value: value, series: "PM2.5"))
             }
-            if showPm10, let v = pt.pm10 {
-                points.append(SeriesPoint(
-                    id: "\(pt.ts)-pm10",
-                    date: Date(timeIntervalSince1970: TimeInterval(pt.ts)),
-                    value: v,
-                    series: "PM10"
-                ))
+            if showPm10, let value = point.pm10 {
+                points.append(SeriesPoint(date: date, value: value, series: "PM10"))
             }
         }
 
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Extended History")
-                .font(.system(.headline, design: .rounded))
-                .foregroundStyle(.secondary)
+        let first = data.first.map { Date(timeIntervalSince1970: TimeInterval($0.ts)) } ?? Date()
+        let last = data.last.map { Date(timeIntervalSince1970: TimeInterval($0.ts)) } ?? Date()
+        let spansDays = last.timeIntervalSince(first) > 2 * 86400
+        let labelFormat: Date.FormatStyle = spansDays
+            ? .dateTime.day().month(.abbreviated)
+            : .dateTime.hour()
+        let selected = selectedPoint
+        let span = last.timeIntervalSince(first)
+        let xTicks = [0.1, 0.37, 0.63, 0.9].map { first.addingTimeInterval(span * $0) }
 
-            // Legend
-            HStack(spacing: 16) {
-                if showPm25 {
-                    legendDot(color: pm25Color, label: "PM2.5")
-                }
-                if showPm10 {
-                    legendDot(color: pm10Color, label: "PM10")
-                }
-            }
-            .font(.system(.caption, design: .rounded))
-
-            Chart {
-                ForEach(points) { point in
-                    LineMark(
-                        x: .value("Time", point.date),
-                        y: .value("Concentration", point.value)
+        return Chart {
+            ForEach(points.filter { $0.series == primary }) { point in
+                AreaMark(
+                    x: .value("Time", point.date),
+                    y: .value("Concentration", point.value)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [primaryColor.opacity(0.25), primaryColor.opacity(0.02)],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
-                    .foregroundStyle(by: .value("Series", point.series))
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5))
-                }
+                )
+            }
 
-                if let selected = selectedDataPoint {
-                    let date = Date(timeIntervalSince1970: TimeInterval(selected.ts))
+            ForEach(points) { point in
+                LineMark(
+                    x: .value("Time", point.date),
+                    y: .value("Concentration", point.value),
+                    series: .value("Series", point.series)
+                )
+                .interpolationMethod(.monotone)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                .foregroundStyle(point.series == "PM2.5" ? SeriesPalette.pm25 : SeriesPalette.pm10)
+            }
 
-                    RuleMark(x: .value("Time", date))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5]))
-                        .foregroundStyle(Color.secondary)
-                        .annotation(position: .top, spacing: 0) {
-                            tooltipView(for: selected)
-                        }
-
-                    if showPm25, let v = selected.pm25 {
-                        PointMark(
-                            x: .value("Time", date),
-                            y: .value("Concentration", v)
-                        )
-                        .symbolSize(60)
-                        .foregroundStyle(pm25Color)
-                        .annotation(position: .overlay) {
-                            Circle()
-                                .stroke(Color(.systemBackground), lineWidth: 2)
-                                .frame(width: 10, height: 10)
-                        }
+            if showPm25 {
+                RuleMark(y: .value("WHO PM2.5", 15))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(SeriesPalette.pm25.opacity(0.6))
+                    .annotation(position: .top, alignment: .leading, spacing: 2) {
+                        Text("WHO 24h PM2.5")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
+            }
 
-                    if showPm10, let v = selected.pm10 {
-                        PointMark(
-                            x: .value("Time", date),
-                            y: .value("Concentration", v)
-                        )
-                        .symbolSize(60)
-                        .foregroundStyle(pm10Color)
-                        .annotation(position: .overlay) {
-                            Circle()
-                                .stroke(Color(.systemBackground), lineWidth: 2)
-                                .frame(width: 10, height: 10)
+            if showPm10 {
+                RuleMark(y: .value("WHO PM10", 45))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(SeriesPalette.pm10.opacity(0.6))
+                    .annotation(position: .top, alignment: .trailing, spacing: 2) {
+                        Text("WHO 24h PM10")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+
+            if let selected {
+                let date = Date(timeIntervalSince1970: TimeInterval(selected.ts))
+
+                RuleMark(x: .value("Selected", date))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .foregroundStyle(Color.secondary.opacity(0.6))
+
+                if showPm25, let value = selected.pm25 {
+                    PointMark(x: .value("Time", date), y: .value("Concentration", value))
+                        .symbol {
+                            ChartSelectionDot(color: SeriesPalette.pm25)
                         }
-                    }
                 }
-            }
-            .chartForegroundStyleScale([
-                "PM2.5": pm25Color,
-                "PM10": pm10Color,
-            ])
-            .chartLegend(.hidden)
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
-            .chartXAxis {
-                AxisMarks(values: xAxisTicks) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    if let _ = value.as(Date.self) {
-                        AxisValueLabel(
-                            format: .dateTime.day().month(.abbreviated),
-                            anchor: value.index == 0
-                                ? .topLeading
-                                : (value.index == value.count - 1 ? .topTrailing : nil)
-                        )
-                        .font(.system(size: 10))
-                    }
-                }
-            }
-            .frame(height: 220)
-            .padding(.top, selectedDataPoint != nil ? 30 : 8)
-            .animation(.easeInOut(duration: 0.1), value: selectedDataPoint != nil)
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    Rectangle().fill(.clear).contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    let locationX = value.location.x - geometry[proxy.plotAreaFrame].origin.x
-                                    guard locationX >= 0, locationX <= proxy.plotAreaSize.width else { return }
-                                    if let date: Date = proxy.value(atX: locationX) {
-                                        selectedDataPoint = findClosestDataPoint(to: date, in: data)
-                                    }
-                                }
-                                .onEnded { _ in selectedDataPoint = nil }
-                        )
-                }
-            }
 
-            Text("Concentration (µg/m³)")
-                .font(.system(.caption2, design: .rounded))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
+                if showPm10, let value = selected.pm10 {
+                    PointMark(x: .value("Time", date), y: .value("Concentration", value))
+                        .symbol {
+                            ChartSelectionDot(color: SeriesPalette.pm10)
+                        }
+                }
+            }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .chartXSelection(value: $selectedDate)
+        .chartXScale(domain: first...last)
+        .chartYAxis {
+            AxisMarks(position: .trailing, values: .automatic(desiredCount: 5)) { _ in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
+                    .foregroundStyle(Color.secondary.opacity(0.4))
+                AxisValueLabel()
+                    .font(.caption2)
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: xTicks) { _ in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(Color.secondary.opacity(0.2))
+                AxisValueLabel(format: labelFormat, centered: true)
+                    .font(.caption2)
+            }
+        }
+        .frame(height: 240)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("PM concentrations over the selected range")
     }
 
-    @ViewBuilder
-    private func legendDot(color: Color, label: String) -> some View {
-        HStack(spacing: 4) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
+    // MARK: - Summary
+
+    private func statsCard(stats: HistoricalStats) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Summary")
+                    .font(.headline)
+                Spacer()
+                Text("µg/m³")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    Text("")
+                        .gridColumnAlignment(.leading)
+                    gridHeader("Average")
+                    gridHeader("Lowest")
+                    gridHeader("Highest")
+                }
+
+                Divider()
+                    .gridCellUnsizedAxes(.horizontal)
+
+                statRow("PM2.5", color: SeriesPalette.pm25, values: [stats.avgPm25, stats.minPm25, stats.maxPm25])
+
+                Divider()
+                    .gridCellUnsizedAxes(.horizontal)
+
+                statRow("PM10", color: SeriesPalette.pm10, values: [stats.avgPm10, stats.minPm10, stats.maxPm10])
+            }
+            .font(.subheadline)
+        }
+        .card()
+    }
+
+    private func gridHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private func statRow(_ label: String, color: Color, values: [Double?]) -> some View {
+        GridRow {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+                Text(label)
+                    .fontWeight(.medium)
+            }
+            .gridColumnAlignment(.leading)
+
+            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                Text(value.map { String(format: "%.1f", $0) } ?? "N/A")
+                    .fontWeight(index == 0 ? .bold : .regular)
+                    .monospacedDigit()
+            }
         }
     }
 
     // MARK: - Download
 
-    private var downloadButton: some View {
-        Group {
-            if let url = viewModel.historyCSVURL() {
-                Link(destination: url) {
-                    HStack {
-                        Image(systemName: "arrow.down.doc")
-                        Text("Download CSV")
-                    }
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.accentColor, lineWidth: 1)
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Tooltip
-
     @ViewBuilder
-    private func tooltipView(for point: HistoricalDataPoint) -> some View {
-        let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
-        let showPm25 = viewModel.historyState.showPm25
-        let showPm10 = viewModel.historyState.showPm10
-
-        VStack(spacing: 4) {
-            HStack(spacing: 12) {
-                if showPm25, let v = point.pm25 {
-                    HStack(spacing: 4) {
-                        Circle().fill(pm25Color).frame(width: 6, height: 6)
-                        Text(String(format: "PM2.5: %.1f", v))
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    }
+    private var downloadRow: some View {
+        if let url = viewModel.historyCSVURL() {
+            Link(destination: url) {
+                HStack {
+                    Label("Download CSV", systemImage: "arrow.down.doc")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.tertiary)
                 }
-                if showPm10, let v = point.pm10 {
-                    HStack(spacing: 4) {
-                        Circle().fill(pm10Color).frame(width: 6, height: 6)
-                        Text(String(format: "PM10: %.1f", v))
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    }
-                }
+                .card()
             }
-
-            Text(date, format: .dateTime.day().month(.abbreviated).hour().minute())
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-        )
-        .padding(.bottom, 8)
-    }
-
-    private func findClosestDataPoint(to date: Date, in data: [HistoricalDataPoint]) -> HistoricalDataPoint? {
-        let target = date.timeIntervalSince1970
-        return data.min { a, b in
-            abs(Double(a.ts) - target) < abs(Double(b.ts) - target)
+            .buttonStyle(.plain)
         }
     }
 }
@@ -708,39 +644,39 @@ struct WeatherFilterChips: View {
     let onFilterSelected: (String) -> Void
 
     private var options: [(condition: String, label: String)] {
-        [("all", "All")] + weatherFilterLabels.filter { presentConditions.contains($0.condition) }
+        [("all", "All weather")] + weatherFilterLabels.filter { presentConditions.contains($0.condition) }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Filter by weather during that time")
-                .font(.system(.caption, design: .rounded))
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 6) {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
                 ForEach(options, id: \.condition) { option in
                     let isSelected = selectedFilter == option.condition
                     Button {
-                        if selectedFilter != option.condition {
+                        if !isSelected {
                             onFilterSelected(option.condition)
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: weatherConditionSymbol(option.condition))
-                                .font(.system(size: 11))
-                            Text(option.label)
-                                .font(.system(.caption2, design: .rounded))
-                                .fontWeight(.medium)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
+                        Label(option.label, systemImage: weatherConditionSymbol(option.condition))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .foregroundStyle(isSelected ? Color.white : Color.primary)
+                            .background(
+                                Capsule()
+                                    .fill(isSelected ? Color.accentColor : Color(.secondarySystemGroupedBackground))
+                            )
                     }
-                    .buttonStyle(.bordered)
-                    .tint(isSelected ? .accentColor : .secondary)
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
+            .padding(.horizontal, 16)
         }
+        .scrollIndicators(.hidden)
+        .padding(.horizontal, -16)
     }
 }
 
@@ -750,60 +686,61 @@ struct WeatherImpactPanel: View {
     let cards: [WeatherPm25Group]
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Average PM2.5 by weather condition")
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("PM2.5 by Weather")
+                .font(.headline)
 
-            ForEach(Array(stride(from: 0, to: cards.count, by: 2)), id: \.self) { index in
-                HStack(spacing: 12) {
-                    WeatherImpactStat(card: cards[index])
-                    if index + 1 < cards.count {
-                        WeatherImpactStat(card: cards[index + 1])
-                    } else {
-                        Spacer()
-                            .frame(maxWidth: .infinity)
-                    }
+            ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
+                if index > 0 {
+                    Divider()
                 }
+                WeatherImpactRow(card: card)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .card()
     }
 }
 
-private struct WeatherImpactStat: View {
+private struct WeatherImpactRow: View {
     let card: WeatherPm25Group
 
     private var diffText: String {
         if card.diffPct == 0 {
-            return "same as average"
-        } else if card.diffPct > 0 {
-            return "+\(card.diffPct)% vs average"
-        } else {
-            return "\(card.diffPct)% vs average"
+            return "Same as average"
         }
+        if card.diffPct > 0 {
+            return "\(card.diffPct)% above average"
+        }
+        return "\(-card.diffPct)% below average"
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text("\(card.label) (\(card.hours)h of data)")
-                .font(.system(.caption2, design: .rounded))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        HStack(spacing: 12) {
+            Image(systemName: weatherConditionSymbol(card.condition))
+                .font(.title3)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36, height: 36)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            Text(String(format: "%.1f µg/m³", card.avg))
-                .font(.system(.headline, design: .rounded))
-                .fontWeight(.bold)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.label)
+                    .fontWeight(.medium)
+                Text("\(card.hours)h of data")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
-            Text(diffText)
-                .font(.system(.caption2, design: .rounded))
-                .foregroundStyle(card.diffPct <= 0 ? Color.accentColor : Color.orange)
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(String(format: "%.1f µg/m³", card.avg))
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                Text(diffText)
+                    .font(.caption)
+                    .foregroundStyle(card.diffPct > 0 ? Color.orange : Color.green)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }

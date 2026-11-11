@@ -61,10 +61,13 @@ struct SearchView: View {
                     listContent
                 }
             }
-            .navigationTitle("Search & Pin Zones")
-            .searchable(text: $searchText, prompt: "Search locations...")
+            .navigationTitle("Search")
+            .searchable(text: $searchText, prompt: "Search locations")
             .refreshable {
                 await viewModel.loadZones()
+            }
+            .task {
+                await viewModel.fetchAllAqiData()
             }
         }
     }
@@ -180,6 +183,21 @@ struct SearchView: View {
     }
 
     @ViewBuilder
+    private func aqiChip(_ zone: Zone) -> some View {
+        if let aqi = viewModel.displayAqi(for: zone.id) {
+            Text("\(aqi)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
+                .background(Capsule().fill(AqiPalette.color(aqi, isUsAqi: viewModel.isUsAqi)))
+                .accessibilityLabel("AQI \(aqi), \(AqiPalette.label(aqi, isUsAqi: viewModel.isUsAqi))")
+        }
+    }
+
+    @ViewBuilder
     private func zoneRow(_ zone: Zone) -> some View {
         let isPinned = viewModel.pinnedZoneIds.contains(zone.id)
 
@@ -187,10 +205,6 @@ struct SearchView: View {
             viewModel.togglePin(for: zone)
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text(zone.name)
                         .font(.system(.body, design: .rounded))
@@ -202,6 +216,8 @@ struct SearchView: View {
                 }
 
                 Spacer()
+
+                aqiChip(zone)
 
                 Image(systemName: isPinned ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
@@ -227,9 +243,7 @@ struct SearchView: View {
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top) {
-                    Image(systemName: "location.fill")
-                        .font(.system(.footnote))
-                        .foregroundStyle(.secondary)
+                    aqiChip(zone)
 
                     Spacer()
 

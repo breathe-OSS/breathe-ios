@@ -68,6 +68,7 @@ struct HomeView: View {
                 ScrollView {
                     content
                 }
+                .background(Color(.systemGroupedBackground))
 #if DEBUG
                 .task(id: viewModel.currentAqi?.zoneId) {
                     guard viewModel.currentAqi != nil else {
@@ -90,10 +91,22 @@ struct HomeView: View {
                 extendedHistoryView(nodes: viewModel.currentAqi?.nodes)
             }
 #endif
-            .navigationTitle("Breathe")
+            .navigationTitle(homeTitle)
 #if os(iOS)
-            .navigationBarTitleDisplayMode(.automatic)
+            .navigationBarTitleDisplayMode(.large)
 #endif
+            .toolbar {
+                if viewModel.pinnedZones.count > 1 {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showReorderSheet = true
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        .accessibilityLabel("Reorder pinned locations")
+                    }
+                }
+            }
             .refreshable {
                 await viewModel.refresh()
             }
@@ -142,13 +155,23 @@ struct HomeView: View {
         )
     }
 
+    private var homeTitle: String {
+        if showOverviewGrid {
+            return "Pinned"
+        }
+        if viewModel.pinnedZones.isEmpty {
+            return "Home"
+        }
+        return viewModel.selectedZone?.name ?? "Home"
+    }
+
     private var showOverviewGrid: Bool {
         pinnedOverview && !viewModel.pinnedZones.isEmpty && !isOverviewExpanded
     }
 
     @ViewBuilder
     private var content: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             loadingOrPinnedSection()
 
             if showPinnedHint && !viewModel.pinnedZones.isEmpty {
@@ -201,24 +224,6 @@ struct HomeView: View {
 
     @ViewBuilder
     private func pinnedLocationsSection() -> some View {
-        HStack {
-            Text("Pinned Locations")
-                .font(.system(.footnote, design: .rounded))
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            if viewModel.pinnedZones.count > 1 {
-                Button {
-                    showReorderSheet = true
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(.footnote, weight: .semibold))
-                }
-                .accessibilityLabel("Reorder pinned locations")
-            }
-        }
-
         if pinnedOverview {
             pinnedOverviewSection()
         } else {
@@ -270,41 +275,35 @@ struct HomeView: View {
                         pinnedChip(zone, proxy: proxy)
                     }
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 2)
             }
             .scrollIndicators(.hidden)
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.05),
-                        .init(color: .black, location: 0.95),
-                        .init(color: .clear, location: 1)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .padding(.horizontal, -16)
         }
     }
 
-    @ViewBuilder
     private func pinnedChip(_ zone: Zone, proxy: ScrollViewProxy) -> some View {
         let isSelected = zone.id == viewModel.selectedZone?.id
-        let action = { selectZone(zone, proxy: proxy) }
 
-        if isSelected {
-            Button(zone.name, action: action)
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .id(zone.id)
-        } else {
-            Button(zone.name, action: action)
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .id(zone.id)
+        return Button {
+            selectZone(zone, proxy: proxy)
+        } label: {
+            Text(zone.name)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor : Color(.secondarySystemGroupedBackground))
+                )
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .id(zone.id)
     }
 
     private func selectZone(_ zone: Zone, proxy: ScrollViewProxy) {
@@ -324,8 +323,7 @@ struct HomeView: View {
         let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
         let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
         let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        aqiHeader(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
-        aqiTitle(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        sourceRow(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
         dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
     }
 
@@ -404,59 +402,33 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func aqiHeader(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
-        HStack(spacing: 8) {
-            Label("Now Viewing", systemImage: "location.fill")
-                .font(.system(.caption, design: .rounded))
-                .fontWeight(.medium)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(.ultraThinMaterial))
-                .foregroundStyle(.secondary)
+    private func sourceRow(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
+        HStack(spacing: 6) {
+            if isAirGradient {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 7, height: 7)
+                Text("Live Ground Sensors")
+            } else if isOpenMeteo {
+                Image(systemName: "cloud.sun")
+                Text("Satellite & Model Data")
+            }
 
             Spacer()
 
             if isAirGradient {
                 Link(destination: URL(string: "https://www.airgradient.com/")!) {
-                    ProviderLogo(name: "air_gradient_logo", height: 20)
+                    ProviderLogo(name: "air_gradient_logo", height: 18)
                 }
             } else if isOpenMeteo {
                 let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
                 Link(destination: URL(string: "https://www.open-meteo.com/")!) {
-                    ProviderLogo(name: assetName, height: 20)
+                    ProviderLogo(name: assetName, height: 18)
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func aqiTitle(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(viewModel.selectedZone?.name ?? "Air Quality")
-                .font(.system(.largeTitle, design: .rounded))
-                .fontWeight(.bold)
-                .fontWidth(.expanded)
-
-            if isAirGradient {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 6, height: 6)
-                        .alignmentGuide(.firstTextBaseline) { dimensions in
-                            dimensions[VerticalAlignment.bottom] + 0.6
-                        }
-                    Text("Live Ground Sensors")
-                        .font(.system(.caption, design: .rounded))
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
-                }
-            } else if isOpenMeteo {
-                Text("Satellite & Model Data")
-                    .font(.system(.caption, design: .rounded))
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-            }
-        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder

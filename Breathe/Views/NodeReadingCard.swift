@@ -31,106 +31,64 @@ struct NodeReadingCard: View {
     let reading: NodeReading
     let isUsAqi: Bool
 
-    @Environment(\.colorScheme) var colorScheme
     @State private var showingSensorInfo = false
     @EnvironmentObject private var viewModel: BreatheViewModel
 
-    // Mirrors Android logic: if pm25 is nil the sensor is offline
     private var isDown: Bool { reading.pm25 == nil }
 
-    // Pick the right AQI value based on the selected standard
     private var displayAqi: Int? {
-        guard !isDown else { return nil }
+        guard !isDown else {
+            return nil
+        }
         if isUsAqi {
             return reading.usAqi ?? reading.aqi
-        } else {
-            return reading.aqi
         }
+        return reading.aqi
     }
 
-    private var aqiLabelStr: String { isUsAqi ? "US AQI" : "NAQI" }
+    private var aqiLabelStr: String { AqiPalette.standardName(isUsAqi: isUsAqi) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // ── Header row: node name + menu button ──
-            HStack {
-                Text(nodeName)
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Spacer()
-
-                Button {
-                    showingSensorInfo = true
-                } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.bottom, 4)
-
-            // ── AQI value ──
-            if isDown {
-                Text("N/A")
-                    .font(.system(size: 36, weight: .black, design: .rounded))
-                    .foregroundStyle(.secondary)
-            } else {
-                Text(displayAqi.map { "\($0)" } ?? "—")
-                    .font(.system(size: 36, weight: .black, design: .rounded))
-                    .foregroundStyle(nodeAqiColor)
-                    .monospacedDigit()
-            }
-
-            Text(aqiLabelStr)
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 10)
-
-            Divider()
-                .opacity(0.4)
-                .padding(.bottom, 8)
-
-            // ── PM2.5 / PM10 side by side ──
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("PM2.5")
-                        .font(.system(.caption2, design: .rounded))
-                        .foregroundStyle(.secondary)
-                    Text(isDown ? "N/A" : (reading.pm25.map { formatValue($0) } ?? "—"))
-                        .font(.system(.subheadline, design: .rounded))
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("PM10")
-                        .font(.system(.caption2, design: .rounded))
-                        .foregroundStyle(.secondary)
-                    Text(isDown ? "N/A" : (reading.pm10.map { formatValue($0) } ?? "—"))
-                        .font(.system(.subheadline, design: .rounded))
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(12)
-        .background(cardBackground, in: RoundedRectangle(cornerRadius: 16))
-        .onLongPressGesture {
+        Button {
             showingSensorInfo = true
-        }
-#if DEBUG
-        .task {
-            if ShotHooks.nodeToOpen(in: viewModel.currentAqi?.nodes) == nodeName {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                showingSensorInfo = true
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 4) {
+                    Text(nodeName)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.tertiary)
+                }
+
+                if let aqi = displayAqi {
+                    AqiChip(aqi: aqi, isUsAqi: isUsAqi)
+                } else {
+                    Label("Offline", systemImage: "wifi.slash")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
+                }
+
+                HStack(spacing: 12) {
+                    metric("PM2.5", reading.pm25)
+                    metric("PM10", reading.pm10)
+                }
             }
+            .card(padding: 14)
+            .opacity(isDown ? 0.6 : 1)
         }
-#endif
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows sensor details")
         .sheet(isPresented: $showingSensorInfo) {
             NodeDetailSheet(
                 nodeName: nodeName,
@@ -142,38 +100,59 @@ struct NodeReadingCard: View {
             )
             .presentationDetents([.medium, .large])
         }
+#if DEBUG
+        .task {
+            if ShotHooks.nodeToOpen(in: viewModel.currentAqi?.nodes) == nodeName {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                showingSensorInfo = true
+            }
+        }
+#endif
     }
 
-    // MARK: - Helpers
-
-    private var nodeAqiColor: Color {
-        guard let aqi = displayAqi else { return .secondary }
-        return AqiPalette.color(aqi, isUsAqi: isUsAqi)
-    }
-
-    private func formatValue(_ v: Double) -> String {
-        String(format: "%.1f", v)
+    private func metric(_ label: String, _ value: Double?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value.map { String(format: "%.1f", $0) } ?? "N/A")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func getSensorInfo() -> SensorInfo? {
-        viewModel.sensorInfos.first { $0.name == nodeName }
-    }
-
-    private var cardBackground: Color {
-#if os(iOS)
-        return Color(UIColor.secondarySystemGroupedBackground)
-#elseif os(macOS)
-        return Color(NSColor.windowBackgroundColor)
-#else
-        return Color.gray.opacity(0.1)
-#endif
+        let zoneName = viewModel.currentAqi?.zoneName
+        return viewModel.sensorInfos.first { $0.name == nodeName && $0.zone == zoneName }
+            ?? viewModel.sensorInfos.first { $0.name == nodeName }
     }
 }
 
-// MARK: - Detail sheet (mirrors Android's ModalBottomSheet content)
+struct AqiChip: View {
+    let aqi: Int
+    let isUsAqi: Bool
 
-// also opened from the map, which passes onOpenZone to hand over to the
-// whole zone
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text("\(aqi)")
+                .font(.title3)
+                .fontWeight(.bold)
+                .monospacedDigit()
+            Text(AqiPalette.standardName(isUsAqi: isUsAqi))
+                .font(.caption2)
+                .fontWeight(.semibold)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: isUsAqi))
+        .background(Capsule().fill(AqiPalette.color(aqi, isUsAqi: isUsAqi)))
+    }
+}
+
 struct NodeDetailSheet: View {
     let nodeName: String
     let reading: NodeReading
@@ -188,32 +167,50 @@ struct NodeDetailSheet: View {
             List {
                 if reading.pm25 == nil {
                     Section {
-                        Label("Sensor is currently offline.", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Sensor offline")
+                                    .font(.headline)
+                                Text("It hasn't sent a reading lately, so there's nothing to show until it reconnects.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "wifi.slash")
+                                .foregroundStyle(.orange)
+                        }
                     }
                 } else {
-                    Section(
-                        header: Text("Readings"),
-                        footer: HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "info.circle")
-                            Text("The internal sensor measures conditions inside the module to improve PM accuracy, requiring dashboard corrections that may not perfectly match true ambient temperature and humidity.")
+                    Section {
+                        HStack {
+                            Text("AQI")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if let aqi = displayAqi {
+                                AqiChip(aqi: aqi, isUsAqi: isUsAqi)
+                            }
                         }
-                    ) {
-                        infoRow("AQI", displayAqi.map { "\($0)" } ?? "—")
-                        infoRow("AQI Standard", aqiLabelStr)
-                        infoRow("PM2.5", reading.pm25.map { String(format: "%.2f µg/m³", $0) } ?? "—")
-                        infoRow("PM10", reading.pm10.map { String(format: "%.2f µg/m³", $0) } ?? "—")
-                        infoRow("Temperature", reading.temp.map { String(format: "%.1f °C", $0) } ?? "—")
-                        infoRow("Humidity", reading.humidity.map { String(format: "%.1f%%", $0) } ?? "—")
+                        if let aqi = displayAqi {
+                            infoRow("Category", AqiPalette.label(aqi, isUsAqi: isUsAqi))
+                        }
+                        infoRow("PM2.5", reading.pm25.map { String(format: "%.1f µg/m³", $0) })
+                        infoRow("PM10", reading.pm10.map { String(format: "%.1f µg/m³", $0) })
+                        infoRow("Temperature", reading.temp.map { String(format: "%.1f °C", $0) })
+                        infoRow("Humidity", reading.humidity.map { String(format: "%.0f%%", $0) })
+                    } header: {
+                        Text("Readings")
+                    } footer: {
+                        Text("Temperature and humidity are measured inside the sensor housing to correct the PM readings, so they can differ from the air outside.")
                     }
                 }
 
                 if let info = sensorInfo {
-                    Section(header: Text("Hardware")) {
+                    Section("Sensor") {
+                        infoRow("Zone", info.zone)
                         infoRow("Provider", info.provider)
                         infoRow("Model", info.model)
                         infoRow("Location ID", "\(info.locationId)")
-                        infoRow("Install Date", info.installationDate)
+                        infoRow("Installed", info.installationDate)
                     }
                 }
 
@@ -225,6 +222,7 @@ struct NodeDetailSheet: View {
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(nodeName)
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -233,14 +231,15 @@ struct NodeDetailSheet: View {
     }
 
     @ViewBuilder
-    private func infoRow(_ label: String, _ value: String) -> some View {
+    private func infoRow(_ label: String, _ value: String?) -> some View {
         HStack {
             Text(label)
                 .foregroundStyle(.secondary)
             Spacer()
-            Text(value)
-                .fontWeight(.semibold)
+            Text(value ?? "N/A")
+                .fontWeight(.medium)
                 .multilineTextAlignment(.trailing)
         }
+        .accessibilityElement(children: .combine)
     }
 }

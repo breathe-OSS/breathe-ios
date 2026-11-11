@@ -544,22 +544,13 @@ struct HomeView: View {
     @ViewBuilder
     private func nodesSection(nodes: [String: NodeReading]?) -> some View {
         if let nodes, !nodes.isEmpty {
-            Text("Individual Node Readings")
-                .font(.system(.title, design: .rounded))
-                .fontWeight(.semibold)
-                .padding(.top, 10)
+            SectionHeader(title: "Sensors")
+                .padding(.top, 8)
                 .id("nodes")
-            
-            VStack(spacing: 8) {
-                // Determine layout: paired down similar to DashboardComponents.kt
-                let sortedNodes = nodes.sorted { $0.key < $1.key }
-                
-                // Group by 2 for a compact grid or just a VStack
-                // In iOS, a LazyVGrid with 2 columns or simply a VStack works.
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(sortedNodes, id: \.key) { key, value in
-                        NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
-                    }
+
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(nodes.sorted { $0.key < $1.key }, id: \.key) { key, value in
+                    NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
                 }
             }
         }

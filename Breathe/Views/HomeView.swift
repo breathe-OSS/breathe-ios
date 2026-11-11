@@ -48,6 +48,8 @@ struct HomeView: View {
     @State private var isOverviewExpanded = false
     @State private var showPinnedHint = false
     @State private var isWelcomeDeferred = false
+    @ScaledMetric(relativeTo: .largeTitle) private var heroNumberSize: CGFloat = 72
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 #if DEBUG
     @State private var shotExtendedHistory = false
 #endif
@@ -329,7 +331,6 @@ struct HomeView: View {
 
     @ViewBuilder
     private func dashboardLayout(aqi: Int, response: AqiResponse, isAirGradient: Bool) -> some View {
-        let position = min(max(Double(aqi) / 500.0, 0), 1)
         // Use 24h average PM2.5 if available, otherwise fall back to current concentration.
         // This mirrors Android's: val pm25For24h = zone.averages24h?.get("pm2_5") ?: pm25
         let pm25Instant = response.concentrations?["pm2.5"]
@@ -346,9 +347,6 @@ struct HomeView: View {
                     aqiCard(aqi: aqi, response: response, fillsHeight: true)
 
                     VStack(spacing: 16) {
-                        setGaugeSpectrum(position: position)
-                            .squircleCard()
-
                         if let weather = response.weather,
                            !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             WeatherContextCard(weather: weather)
@@ -384,11 +382,6 @@ struct HomeView: View {
             }
         } else {
             aqiCard(aqi: aqi, response: response)
-                .padding(.vertical, 6)
-                .padding(.bottom, 6)
-            setGaugeSpectrum(position: position)
-                .padding(.top, 10)
-                .padding(.bottom, 40)
             if let weather = response.weather,
                !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 WeatherContextCard(weather: weather)
@@ -433,56 +426,57 @@ struct HomeView: View {
 
     @ViewBuilder
     private func aqiCard(aqi: Int, response: AqiResponse, fillsHeight: Bool = false) -> some View {
-        let aqiTextColor = aqiDisplayTextColor(aqi)
+        let tint = aqiColor(aqi)
+        let rowLayout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout(alignment: .lastTextBaseline))
+        let footerLayout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout())
 
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text(AqiPalette.label(aqi, isUsAqi: viewModel.isUsAqi))
-                    .font(.system(.title3, design: .rounded))
-                    .fontWeight(.bold)
-                    .foregroundStyle(aqiTextColor)
-                    .padding(.leading, 6)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
 
                 Spacer()
 
-                Text(viewModel.isUsAqi ? "US AQI" : "NAQI")
-                    .font(.system(.caption, design: .rounded))
+                Text(AqiPalette.standardName(isUsAqi: viewModel.isUsAqi))
+                    .font(.caption)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
-                    .background(
-                        Capsule()
-                            .fill(aqiColor(aqi))
-                    )
+                    .background(Capsule().fill(tint))
             }
 
-            HStack(alignment: .lastTextBaseline, spacing: 14) {
+            rowLayout {
                 Text("\(aqi)")
-                    .font(.system(size: 72, weight: .heavy, design: .monospaced))
+                    .font(.system(size: heroNumberSize, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(aqiTextColor)
+                    .contentTransition(.numericText(value: Double(aqi)))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(.primary)
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Primary")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundStyle(.secondary)
-
-                    if let pollutant = viewModel.displayPollutant {
-                        PollutantLabel(raw: pollutant, style: .title, weight: .bold)
+                if let pollutant = viewModel.displayPollutant {
+                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
+                        Text("Primary")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        PollutantLabel(raw: pollutant, style: .title3, weight: .semibold)
                             .foregroundStyle(.primary)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
-            Divider()
-                .background(aqiColor(aqi).opacity(0.3))
+            setGaugeSpectrum(position: min(max(Double(aqi) / 500.0, 0), 1))
                 .padding(.vertical, 4)
 
-            HStack {
+            footerLayout {
                 if let h = viewModel.display1hTrend {
                     trendItem(label: "1h", value: h)
                 }
@@ -490,33 +484,38 @@ struct HomeView: View {
                 Spacer()
 
                 if let ts = viewModel.formattedLastUpdated {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundStyle(.secondary)
-                        Text(ts)
-                            .font(.system(.subheadline, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
+                    Label(ts, systemImage: "clock")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
 
             if let warning = response.warning, !warning.isEmpty {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(.footnote, design: .rounded))
-                    .fontWeight(.medium)
-                    .foregroundStyle(Color.red)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.red.opacity(0.15))
-                    .cornerRadius(12)
+                Label {
+                    Text(warning)
+                        .foregroundStyle(.primary)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+                .font(.footnote)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    Color(.tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
             }
         }
-        .padding(22)
-        .frame(maxHeight: fillsHeight ? .infinity : nil, alignment: .top)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(aqiColor(aqi).opacity(0.15))
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(tint.opacity(colorScheme == .dark ? 0.22 : 0.16))
+                )
         )
         .animation(reduceMotion ? .none : .snappy, value: aqi)
     }
@@ -746,21 +745,6 @@ struct HomeView: View {
     private func aqiColor(_ value: Int) -> Color {
         AqiPalette.color(value, isUsAqi: viewModel.isUsAqi)
     }
-
-    private func isModerateAqi(_ value: Int) -> Bool {
-        if viewModel.isUsAqi {
-            return (51...100).contains(value)
-        }
-        return (101...200).contains(value)
-    }
-
-    private func aqiDisplayTextColor(_ value: Int) -> Color {
-        if colorScheme == .light && isModerateAqi(value) {
-            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
-        }
-        return aqiColor(value)
-    }
-
 }
 
 extension View {

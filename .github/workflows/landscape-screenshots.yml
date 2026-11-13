@@ -10,7 +10,7 @@ jobs:
     env:
       BUNDLE_ID: com.sidharthify.BreatheOSS
       GROUP_ID: group.com.sidharthify.BreatheOSS.BreatheWidget
-      PINNED_ZONES: '["srinagar","jammu_city","leh"]'
+      PINNED_ZONES: '["gandhi-nagar","hazratbal","zero-waste-ladakh"]'
 
     steps:
       - name: Checkout

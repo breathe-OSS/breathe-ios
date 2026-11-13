@@ -11,6 +11,8 @@
   <img src="assets/screenshot-2.jpg" alt="Screenshot 2" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-3.jpg" alt="Screenshot 3" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-4.jpg" alt="Screenshot 4" width="200" style="border-radius:26px;"/>
+  <img src="assets/screenshot-5.jpg" alt="Screenshot 5" width="200" style="border-radius:26px;"/>
+  <img src="assets/screenshot-6.jpg" alt="Screenshot 6" width="200" style="border-radius:26px;"/>
 </p>
 
 > **Note:** This repository is specifically for the **iOS** version of Breathe. If you are looking for the original Android version, please visit the [Breathe (Android) repository](https://github.com/breathe-OSS/breathe).
@@ -30,10 +32,11 @@
 - **Native iOS design** with cards, Dynamic Type, and light and dark mode
 - **US AQI and Indian NAQI**, switchable in Settings
 - **Segmented AQI gauge** with a guide to what every band means
-- **Live ground sensors**, with every sensor in a zone listed, offline ones included
+- **Every sensor is its own place**, listed by district and division in Explore
+- **Raw readings** from the sensors before AirGradient's correction, switchable everywhere including the widget
 - **24 hour trend and hourly charts** you can drag across to read any hour
-- **Extended history** with weather filters, WHO guideline lines and a calendar view
-- **Map** of every zone and sensor, grouped when zoomed out
+- **Extended history** for AQI, PM2.5, PM10, temperature and humidity, calibrated, raw or both, with time in each category, an hour of day chart, weather filters and sensor comparison
+- **Map** of every sensor, grouped when zoomed out, with a full overview sheet for each place
 - **Swipe between pinned places**, with context menus and haptics
 - **Cigarette equivalence**
 - **Home screen widgets**
@@ -58,14 +61,15 @@ Breathe/
 ├── Networking/
 │   └── BreatheAPI.swift        # API client, shared with the widget
 ├── Util/
-│   ├── SensorPoints.swift      # Sensor positions for the map
+│   ├── HistoryAnalysis.swift   # Bucketing, summaries and sensor comparison
+│   ├── Places.swift            # Districts, raw readings and health advice
 │   ├── ShotHooks.swift         # DEBUG only launch arguments for CI screenshots
 │   ├── Theme.swift             # AQI palette, bands and card style
 │   └── WeatherHistory.swift    # Weather filters for extended history
 ├── ViewModel/
 │   └── BreatheViewModel.swift
 └── Views/
-    ├── HomeView.swift          # Home, hero card, concentrations, sensors
+    ├── HomeView.swift          # Home, hero card, concentrations, about the sensor
     ├── AqiGauge.swift          # Segmented gauge and band guide
     ├── GraphView.swift         # 24 hour trend chart
     ├── DotHistoryView.swift    # Hourly bars
@@ -73,8 +77,8 @@ Breathe/
     ├── ExtendedDotGrid.swift   # Calendar view of extended history
     ├── ChartComponents.swift
     ├── NodeReadingCard.swift   # Sensor cards and sheet
-    ├── MapView.swift
-    ├── SearchView.swift
+    ├── MapView.swift           # Map and the overview sheet for a place
+    ├── SearchView.swift        # Explore
     ├── SettingsView.swift
     ├── DataSourcesView.swift
     ├── HomeOverviewViews.swift # Welcome screen and pinned overview

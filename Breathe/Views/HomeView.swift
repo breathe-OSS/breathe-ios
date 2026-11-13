@@ -556,6 +556,7 @@ struct HomeView: View {
     @ViewBuilder
     private func aqiCard(aqi: Int, response: AqiResponse, fillsHeight: Bool = false) -> some View {
         let tint = aqiColor(aqi)
+        let aqiTextColor = aqiDisplayTextColor(aqi)
         let rowLayout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
             : AnyLayout(HStackLayout(alignment: .lastTextBaseline))
@@ -566,8 +567,9 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Text(AqiPalette.label(aqi, isUsAqi: viewModel.isUsAqi))
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                    .font(.system(.title3))
+                    .fontWeight(.bold)
+                    .foregroundStyle(.aqiTextColor)
 
                 Spacer()
 
@@ -576,18 +578,25 @@ struct HomeView: View {
                     .fontWeight(.semibold)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .foregroundStyle(AqiPalette.onColor(aqi, isUsAqi: viewModel.isUsAqi))
-                    .background(Capsule().fill(tint))
+                    .foregroundStyle(
+                        AqiPalette.onColor(
+                            aqi, isUsAqi: viewModel.isUsAqi
+                        )
+                    )
+                    .background(
+                        Capsule()
+                            .fill(tint)
+                    )
             }
 
             rowLayout {
                 Text("\(aqi)")
-                    .font(.system(size: heroNumberSize, weight: .heavy, design: .rounded))
+                    .font(.system(size: heroNumberSize, weight: .heavy, design: .monospaced))
                     .monospacedDigit()
                     .contentTransition(.numericText(value: Double(aqi)))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.aqiTextColor)
 
                 Spacer()
 
@@ -596,7 +605,7 @@ struct HomeView: View {
                         Text("Primary")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        PollutantLabel(raw: pollutant, style: .title3, weight: .semibold)
+                        PollutantLabel(raw: pollutant, style: .title, weight: .bold)
                             .foregroundStyle(.primary)
                     }
                 }
@@ -607,6 +616,10 @@ struct HomeView: View {
                 .onTapGesture {
                     showScaleSheet = true
                 }
+
+            Divider()
+                .background(aqiColor(aqi).opacity(0.3))
+                .padding(.vertical, 4)
 
             footerLayout {
                 if let h = viewModel.display1hTrend {

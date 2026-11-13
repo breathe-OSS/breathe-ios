@@ -97,16 +97,15 @@ jobs:
 
           shoot_iphone_set() {
             local udid=$1 label=$2 mode=$3
-            shoot "$udid" "$label-home-$mode" 0 -shotZone srinagar
-            shoot "$udid" "$label-home-nodes-$mode" 0 -shotZone srinagar -shotScroll nodes
-            shoot "$udid" "$label-home-history-$mode" 0 -shotZone srinagar -shotScroll history
-            shoot "$udid" "$label-home-hourly-$mode" 0 -shotZone srinagar -shotScroll history -shotHistory hourly
-            shoot "$udid" "$label-node-live-$mode" 0 -shotZone srinagar -shotSheet node
-            shoot "$udid" "$label-node-offline-$mode" 0 -shotZone kargil_town -shotSheet offlineNode
-            shoot "$udid" "$label-extended-history-$mode" 0 -shotZone srinagar -shotScreen extendedHistory
+            shoot "$udid" "$label-home-$mode" 0 -shotZone gandhi-nagar
+            shoot "$udid" "$label-home-nodes-$mode" 0 -shotZone gandhi-nagar -shotScroll nodes
+            shoot "$udid" "$label-home-history-$mode" 0 -shotZone gandhi-nagar -shotScroll history
+            shoot "$udid" "$label-home-hourly-$mode" 0 -shotZone gandhi-nagar -shotScroll history -shotHistory hourly
+            shoot "$udid" "$label-node-live-$mode" 0 -shotZone gandhi-nagar -shotSheet node
+            shoot "$udid" "$label-node-offline-$mode" 0 -shotZone ahamshrief -shotSheet offlineNode
+            shoot "$udid" "$label-extended-history-$mode" 0 -shotZone gandhi-nagar -shotScreen extendedHistory
             shoot "$udid" "$label-map-sensors-$mode" 1
-            shoot "$udid" "$label-map-districts-$mode" 1 -shotLayer districts
-            shoot "$udid" "$label-map-zone-$mode" 1 -shotZone srinagar -shotSheet zone
+            shoot "$udid" "$label-map-zone-$mode" 1 -shotZone gandhi-nagar -shotSheet zone
             shoot "$udid" "$label-search-$mode" 2
             shoot "$udid" "$label-settings-$mode" 3
             shoot "$udid" "$label-settings-bottom-$mode" 3 -shotScroll bottom
@@ -135,18 +134,18 @@ jobs:
               shoot_iphone_set "$udid" "$label" dark
             else
               xcrun simctl ui "$udid" appearance light
-              shoot "$udid" "$label-home-light" 0 -shotZone srinagar
+              shoot "$udid" "$label-home-light" 0 -shotZone gandhi-nagar
               shoot "$udid" "$label-map-light" 1
               shoot "$udid" "$label-search-light" 2
               shoot "$udid" "$label-settings-light" 3
 
               xcrun simctl ui "$udid" appearance dark
-              shoot "$udid" "$label-home-dark" 0 -shotZone srinagar
+              shoot "$udid" "$label-home-dark" 0 -shotZone gandhi-nagar
               shoot "$udid" "$label-search-dark" 2
             fi
 
             xcrun simctl ui "$udid" content_size accessibility-extra-large
-            shoot "$udid" "$label-home-dark-largetext" 0 -shotZone srinagar
+            shoot "$udid" "$label-home-dark-largetext" 0 -shotZone gandhi-nagar
             xcrun simctl ui "$udid" content_size large
 
             xcrun simctl shutdown "$udid"

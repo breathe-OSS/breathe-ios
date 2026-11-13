@@ -77,6 +77,34 @@ final class BreatheViewModel: ObservableObject {
     
     @Published var currentAqi: AqiResponse?
     @Published var allAqiData: [String: AqiResponse] = [:]
+    private var sourceAqi: [String: AqiResponse] = [:]
+
+    @Published var rawMode: Bool {
+        didSet {
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
+            sharedDefaults.set(rawMode, forKey: "raw_readings")
+            allAqiData = sourceAqi.mapValues { shown($0) }
+            if let id = currentAqi?.zoneId, let source = sourceAqi[id] {
+                currentAqi = shown(source)
+            }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    @Published var rawHintHidden: Bool {
+        didSet {
+            UserDefaults.standard.set(rawHintHidden, forKey: "raw_hint_hidden")
+        }
+    }
+
+    private func shown(_ response: AqiResponse) -> AqiResponse {
+        rawMode ? response.asRaw() : response
+    }
+
+    private func store(_ response: AqiResponse) {
+        sourceAqi[response.zoneId] = response
+        allAqiData[response.zoneId] = shown(response)
+    }
     @Published var isLoading = false
     @Published var error: String?
 
@@ -95,7 +123,11 @@ final class BreatheViewModel: ObservableObject {
     }
 
     var liveZones: [Zone] {
-        zones.filter { $0.provider?.localizedCaseInsensitiveContains("airgradient") == true }
+        zones.filter { !$0.isEstimate }
+    }
+
+    var comparablePlaces: [Zone] {
+        zones.filter { !$0.isEstimate && $0.id != historyZoneId }
     }
 
     func displayAqi(for zoneId: String) -> Int? {
@@ -152,6 +184,8 @@ final class BreatheViewModel: ObservableObject {
             sharedDefaults.set(true, forKey: "is_us_aqi")
         }
         self.isUsAqi = sharedDefaults.bool(forKey: "is_us_aqi")
+        self.rawMode = sharedDefaults.bool(forKey: "raw_readings")
+        self.rawHintHidden = UserDefaults.standard.bool(forKey: "raw_hint_hidden")
         
         if let data = sharedDefaults.data(forKey: "pinned_zones"),
            let decoded = try? JSONDecoder().decode([String].self, from: data) {
@@ -168,6 +202,10 @@ final class BreatheViewModel: ObservableObject {
         do {
             let fetchedZones = try await BreatheAPI.shared.getZones()
             zones = fetchedZones
+            let migrated = migratePinnedIds(pinnedZoneIds, zones: fetchedZones)
+            if migrated != pinnedZoneIds {
+                pinnedZoneIds = migrated
+            }
             
             do {
                 sensorInfos = try await BreatheAPI.shared.getSensorInfo()
@@ -209,10 +247,10 @@ final class BreatheViewModel: ObservableObject {
         isLoading = true
         do {
             let fetchedData = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)
+            store(fetchedData)
             if !isMapSelection && zone.id == selectedZone?.id {
-                currentAqi = fetchedData
+                currentAqi = shown(fetchedData)
             }
-            allAqiData[zone.id] = fetchedData
             // Fetch the rest silently for the map
             Task { await fetchAllAqiData() }
         } catch {
@@ -231,7 +269,7 @@ final class BreatheViewModel: ObservableObject {
         // and then it goes back to asking zone by zone
         if let bulk = try? await BreatheAPI.shared.getZonesAqi(zoneIds: missing) {
             for response in bulk {
-                allAqiData[response.zoneId] = response
+                store(response)
             }
             return
         }
@@ -250,7 +288,7 @@ final class BreatheViewModel: ObservableObject {
             
             for await (zoneId, response) in group {
                 if let response = response {
-                    allAqiData[zoneId] = response
+                    store(response)
                 }
             }
         }
@@ -300,15 +338,23 @@ final class BreatheViewModel: ObservableObject {
 
     private var historyZoneId: String?
     private var historyFetchTask: Task<Void, Never>?
+    private var compareFetchTask: Task<Void, Never>?
 
     func openHistory(zoneId: String) {
+        let sameZone = historyZoneId == zoneId
+        let previous = historyState
         historyZoneId = zoneId
-        historyState = HistoryState()
+        var next = HistoryState()
+        next.metric = previous.metric
+        next.mode = rawMode ? .raw : .cal
+        next.compareIds = sameZone ? previous.compareIds : []
+        historyState = next
         fetchHistoricalData()
     }
 
     func setHistoryRange(_ range: String) {
         historyState.selectedRange = range
+        historyState.interval = "1h"
         historyState.showCustomInputs = false
         historyState.periodActive = false
         fetchHistoricalData()
@@ -351,23 +397,9 @@ final class BreatheViewModel: ObservableObject {
         historyState.periodMode = mode
         historyState.period = period
         historyState.selectedRange = period.token
+        historyState.interval = "1h"
         historyState.showCustomInputs = false
         fetchHistoricalData()
-    }
-
-    private func historyInterval(for state: HistoryState) -> String {
-        if state.periodActive, let period = state.period {
-            return period.interval
-        }
-        if state.showCustomInputs {
-            return state.customInterval
-        }
-        switch state.selectedRange {
-        case "1w":  return "1h"
-        case "1mo": return "4h"
-        case "6mo": return "1d"
-        default:    return "1h"
-        }
     }
 
     func setCustomRange(_ range: String) {
@@ -379,67 +411,66 @@ final class BreatheViewModel: ObservableObject {
     }
 
     func applyCustomHistory() {
-        historyState.selectedRange = historyState.customRange
+        let interval = historyState.customInterval.trimmingCharacters(in: .whitespaces)
+        historyState.selectedRange = historyState.customRange.trimmingCharacters(in: .whitespaces)
+        historyState.interval = interval.isEmpty ? "1h" : interval
         fetchHistoricalData()
     }
 
-    func setHistorySensor(_ sensor: String) {
-        historyState.selectedSensor = sensor
-        fetchHistoricalData()
+    func setHistoryMetric(_ metric: HistoryMetric) {
+        historyState.metric = metric
     }
 
-    func toggleHistoryPm25() {
-        historyState.showPm25.toggle()
-        fetchHistoricalData()
-    }
-
-    func toggleHistoryPm10() {
-        historyState.showPm10.toggle()
-        fetchHistoricalData()
+    func setHistoryMode(_ mode: HistoryMode) {
+        historyState.mode = mode
     }
 
     func setWeatherFilter(_ condition: String) {
         historyState.weatherFilter = condition
     }
 
+    func toggleCompare(_ id: String) {
+        if let index = historyState.compareIds.firstIndex(of: id) {
+            historyState.compareIds.remove(at: index)
+        } else {
+            historyState.compareIds.append(id)
+        }
+        fetchCompareRows()
+    }
+
+    func setCompareIds(_ ids: [String]) {
+        historyState.compareIds = ids
+        fetchCompareRows()
+    }
+
     private func fetchHistoricalData() {
         guard let zoneId = historyZoneId else { return }
         let state = historyState
 
-        let location = state.selectedSensor == "zone"
-            ? zoneId
-            : "\(zoneId)_\(state.selectedSensor)"
-
-        let interval = historyInterval(for: state)
-
-        var metricsList: [String] = []
-        if state.showPm25 { metricsList.append("pm2.5") }
-        if state.showPm10 { metricsList.append("pm10") }
-        if metricsList.isEmpty { metricsList = ["pm2.5", "pm10"] }
-        let metrics = metricsList.joined(separator: ",")
-
         historyState.isLoading = true
         historyState.error = nil
+        historyState.compareRows = [:]
 
         historyFetchTask?.cancel()
         historyFetchTask = Task {
             do {
                 async let historyTask = BreatheAPI.shared.getHistoricalData(
-                    location: location,
+                    location: zoneId,
                     timeRange: state.selectedRange,
-                    interval: interval,
-                    metrics: metrics
+                    interval: state.interval,
+                    metrics: historyMetrics
                 )
                 async let weatherTask = optionalWeatherHistory(
                     zoneId: zoneId,
                     timeRange: state.selectedRange,
-                    interval: interval
+                    interval: state.interval
                 )
 
                 let response = try await historyTask
                 let weather = await weatherTask
                 guard !Task.isCancelled else { return }
-                let groups = weatherPm25Groups(data: response.data, weather: weather)
+                let rows = response.data.sorted { $0.ts < $1.ts }
+                let groups = weatherPm25Groups(data: rows, weather: weather)
                 let nextFilter: String
                 if state.weatherFilter != "all" && (groups[state.weatherFilter]?.count ?? 0) == 0 {
                     nextFilter = "all"
@@ -448,15 +479,51 @@ final class BreatheViewModel: ObservableObject {
                 }
 
                 historyState.isLoading = false
-                historyState.data = response.data
-                historyState.stats = response.stats
+                historyState.data = rows
                 historyState.weatherHistory = weather
                 historyState.weatherFilter = nextFilter
+                fetchCompareRows()
             } catch {
                 guard !Task.isCancelled else { return }
                 historyState.isLoading = false
                 historyState.error = "Failed to load: \(error.localizedDescription)"
             }
+        }
+    }
+
+    private func fetchCompareRows() {
+        let state = historyState
+        let missing = state.compareIds.filter { state.compareRows[$0] == nil }
+        guard !missing.isEmpty else { return }
+        historyState.compareLoading = true
+        compareFetchTask?.cancel()
+        let range = state.selectedRange
+        let interval = state.interval
+        compareFetchTask = Task {
+            var results: [String: [HistoricalDataPoint]] = [:]
+            await withTaskGroup(of: (String, [HistoricalDataPoint]).self) { group in
+                for id in missing {
+                    group.addTask {
+                        let rows = (try? await BreatheAPI.shared.getHistoricalData(
+                            location: id,
+                            timeRange: range,
+                            interval: interval,
+                            metrics: historyMetrics
+                        ).data) ?? []
+                        return (id, rows.sorted { $0.ts < $1.ts })
+                    }
+                }
+                for await (id, rows) in group {
+                    results[id] = rows
+                }
+            }
+            guard !Task.isCancelled,
+                  historyState.selectedRange == range,
+                  historyState.interval == interval else {
+                return
+            }
+            historyState.compareRows.merge(results) { _, new in new }
+            historyState.compareLoading = false
         }
     }
 
@@ -475,13 +542,6 @@ final class BreatheViewModel: ObservableObject {
     func historyCSVURL() -> URL? {
         guard let zoneId = historyZoneId else { return nil }
         let state = historyState
-
-        let location = state.selectedSensor == "zone"
-            ? zoneId
-            : "\(zoneId)_\(state.selectedSensor)"
-
-        let interval = historyInterval(for: state)
-
-        return URL(string: "https://api.breatheoss.app/historical-data/\(location)/\(state.selectedRange)/\(interval)/pm2.5,pm10?format=csv")
+        return URL(string: "https://api.breatheoss.app/historical-data/\(zoneId)/\(state.selectedRange)/\(state.interval)/\(historyMetrics)?format=csv")
     }
 }

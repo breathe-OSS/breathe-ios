@@ -44,6 +44,7 @@ struct Provider: AppIntentTimelineProvider {
         var secondaryZones: [(String, AqiResponse)] = []
         
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
+        let rawMode = sharedDefaults?.bool(forKey: "raw_readings") ?? false
         
         // Use user's selected widget zone if configured:
         if let configZone = configuration.selectedZone {
@@ -73,11 +74,14 @@ struct Provider: AppIntentTimelineProvider {
             
             for zoneId in others {
                 if let aqiStr = try? await BreatheAPI.shared.getZoneAqi(zoneId: zoneId) {
-                    secondaryZones.append((aqiStr.zoneName, aqiStr))
+                    secondaryZones.append((aqiStr.zoneName, rawMode ? aqiStr.asRaw() : aqiStr))
                 }
             }
         }
         
+        if rawMode {
+            aqiResponse = aqiResponse?.asRaw()
+        }
         let entry = SimpleEntry(date: currentDate, aqi: aqiResponse, zoneName: zName, secondaryZones: secondaryZones)
         
         // Refresh every 16 mins

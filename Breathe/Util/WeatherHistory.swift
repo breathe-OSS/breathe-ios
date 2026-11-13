@@ -87,14 +87,15 @@ func filterHistoryByWeather(
 
 func weatherPm25Groups(
     data: [HistoricalDataPoint],
-    weather: WeatherHistory?
+    weather: WeatherHistory?,
+    valueOf: (HistoricalDataPoint) -> Double? = { $0.pm25 }
 ) -> [String: (sum: Double, count: Int)] {
     guard let weather, !weather.points.isEmpty else { return [:] }
     let lookup = Dictionary(weather.points.map { ($0.ts, $0) }, uniquingKeysWith: { _, last in last })
     let interval = weather.interval
     var groups: [String: (sum: Double, count: Int)] = [:]
     for point in data {
-        guard let pm25 = point.pm25 else { continue }
+        guard let pm25 = valueOf(point) else { continue }
         guard var condition = conditionForTs(ts: point.ts, interval: interval, anchor: weather.anchor ?? 0, lookup: lookup) else { continue }
         if condition == "thunderstorm" { condition = "rain" }
         let current = groups[condition] ?? (sum: 0, count: 0)
@@ -105,9 +106,10 @@ func weatherPm25Groups(
 
 func weatherImpactCards(
     data: [HistoricalDataPoint],
-    weather: WeatherHistory?
+    weather: WeatherHistory?,
+    valueOf: (HistoricalDataPoint) -> Double? = { $0.pm25 }
 ) -> [WeatherPm25Group] {
-    let groups = weatherPm25Groups(data: data, weather: weather)
+    let groups = weatherPm25Groups(data: data, weather: weather, valueOf: valueOf)
     if groups.isEmpty { return [] }
     let totalSum = groups.values.reduce(0) { $0 + $1.sum }
     let totalCount = groups.values.reduce(0) { $0 + $1.count }

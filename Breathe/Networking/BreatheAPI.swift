@@ -52,7 +52,10 @@ final class BreatheAPI: @unchecked Sendable {
     private init() {}
 
     func getZones() async throws -> [Zone] {
-        let response: ZonesResponse = try await get(path: "/zones")
+        let response: ZonesResponse = try await get(
+            path: "/zones",
+            queryItems: [URLQueryItem(name: "layout", value: "sensors")]
+        )
         return response.zones
     }
 

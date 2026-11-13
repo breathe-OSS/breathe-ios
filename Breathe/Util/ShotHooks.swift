@@ -48,10 +48,6 @@ enum ShotHooks {
         UserDefaults.standard.string(forKey: "shotHistory")
     }
 
-    static var mapLayer: String? {
-        UserDefaults.standard.string(forKey: "shotLayer")
-    }
-
     static func nodeToOpen(in nodes: [String: NodeReading]?) -> String? {
         guard let nodes, let sheet else {
             return nil

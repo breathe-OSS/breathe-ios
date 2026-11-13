@@ -40,28 +40,46 @@ struct Zone: Codable, Identifiable, Hashable {
     let provider: String?
     let lat: Double?
     let lon: Double?
+    var kind: String? = nil
+    var district: String? = nil
+    var division: String? = nil
+    var legacyZone: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, provider, lat, lon, kind, district, division
+        case legacyZone = "legacy_zone"
+    }
 }
 
 struct AqiResponse: Codable, Identifiable {
     var id: String { zoneId }
 
-    let zoneId: String
-    let zoneName: String
-    let nAqi: Int
-    let usAqi: Int?
-    let mainPollutant: String
-    let usMainPollutant: String?
-    let aqiBreakdown: [String: Int]?
-    let concentrations: [String: Double]?
-    let timestampUnix: Double?
-    let lastUpdateStr: String?
-    let history: [HistoryPoint]?
-    let averages24h: [String: Double]?
-    let trends: Trends?
-    let warning: String?
-    let source: String?
-    let nodes: [String: NodeReading]?
-    let weather: WeatherInfo?
+    var zoneId: String
+    var zoneName: String
+    var nAqi: Int
+    var usAqi: Int?
+    var mainPollutant: String
+    var usMainPollutant: String?
+    var aqiBreakdown: [String: Int]?
+    var concentrations: [String: Double]?
+    var timestampUnix: Double?
+    var lastUpdateStr: String?
+    var history: [HistoryPoint]?
+    var averages24h: [String: Double]?
+    var trends: Trends?
+    var warning: String?
+    var source: String?
+    var nodes: [String: NodeReading]?
+    var weather: WeatherInfo?
+    var kind: String?
+    var district: String?
+    var division: String?
+    var locationId: Int?
+    var sensorStatus: String?
+    var readings: SensorReadings?
+    var raw: RawReadings?
+    var averages24hRaw: [String: Double]?
+    var showingRaw = false
 
     enum CodingKeys: String, CodingKey {
         case zoneId          = "zone_id"
@@ -75,8 +93,46 @@ struct AqiResponse: Codable, Identifiable {
         case timestampUnix   = "timestamp_unix"
         case lastUpdateStr   = "last_update"
         case averages24h     = "averages_24h"
+        case locationId      = "location_id"
+        case sensorStatus    = "sensor_status"
+        case averages24hRaw  = "averages_24h_raw"
         case nodes
         case history, trends, warning, source, weather
+        case kind, district, division, readings, raw
+    }
+}
+
+struct SensorReadings: Codable {
+    var pm25: Double?
+    var pm10: Double?
+    var temp: Double?
+    var humidity: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case temp, humidity
+        case pm25 = "pm2_5"
+        case pm10 = "pm10"
+    }
+}
+
+struct RawReadings: Codable {
+    var pm25: Double?
+    var pm10: Double?
+    var temp: Double?
+    var humidity: Double?
+    var nAqi: Int?
+    var usAqi: Int?
+    var mainPollutant: String?
+    var usMainPollutant: String?
+
+    enum CodingKeys: String, CodingKey {
+        case temp, humidity
+        case pm25 = "pm2_5"
+        case pm10 = "pm10"
+        case nAqi = "aqi"
+        case usAqi = "us_aqi"
+        case mainPollutant = "main_pollutant"
+        case usMainPollutant = "us_main_pollutant"
     }
 }
 
@@ -133,6 +189,7 @@ struct WeatherHistory: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         interval = try container.decodeIfPresent(Int.self, forKey: .interval) ?? 3600
+        anchor = try container.decodeIfPresent(Int.self, forKey: .anchor)
         points = try container.decodeIfPresent([WeatherHistoryPoint].self, forKey: .points) ?? []
         zoneId = try container.decodeIfPresent(String.self, forKey: .zoneId)
     }
@@ -194,13 +251,25 @@ struct SensorInfo: Codable, Identifiable {
 }
 
 struct HistoryPoint: Codable {
-    let ts: Int
-    let aqi: Int
-    let usAqi: Int?
+    var ts: Int
+    var aqi: Int
+    var usAqi: Int?
+    var pm25: Double?
+    var pm10: Double?
+    var aqiRaw: Int?
+    var usAqiRaw: Int?
+    var pm25Raw: Double?
+    var pm10Raw: Double?
 
     enum CodingKeys: String, CodingKey {
         case ts, aqi
         case usAqi = "us_aqi"
+        case pm25 = "pm2_5"
+        case pm10 = "pm10"
+        case aqiRaw = "aqi_raw"
+        case usAqiRaw = "us_aqi_raw"
+        case pm25Raw = "pm2_5_raw"
+        case pm10Raw = "pm10_raw"
     }
 }
 
@@ -219,16 +288,46 @@ struct Trends: Codable {
 struct HistoricalDataPoint: Codable, Identifiable {
     var id: Int { ts }
 
-    let zoneId: String?
-    let ts: Int
-    let pm25: Double?
-    let pm10: Double?
+    var zoneId: String?
+    var ts: Int
+    var pm25: Double?
+    var pm10: Double?
+    var temp: Double?
+    var humidity: Double?
+    var usAqi: Double?
+    var pm25Raw: Double?
+    var pm10Raw: Double?
+    var tempRaw: Double?
+    var humidityRaw: Double?
+    var usAqiRaw: Double?
 
     enum CodingKeys: String, CodingKey {
         case zoneId = "zone_id"
-        case ts
+        case ts, temp, humidity
         case pm25 = "pm2_5"
         case pm10 = "pm10"
+        case usAqi = "us_aqi"
+        case pm25Raw = "pm2_5_raw"
+        case pm10Raw = "pm10_raw"
+        case tempRaw = "temp_raw"
+        case humidityRaw = "humidity_raw"
+        case usAqiRaw = "us_aqi_raw"
+    }
+
+    func value(_ key: String) -> Double? {
+        switch key {
+        case "pm2_5": return pm25
+        case "pm10": return pm10
+        case "temp": return temp
+        case "humidity": return humidity
+        case "us_aqi": return usAqi
+        case "pm2_5_raw": return pm25Raw
+        case "pm10_raw": return pm10Raw
+        case "temp_raw": return tempRaw
+        case "humidity_raw": return humidityRaw
+        case "us_aqi_raw": return usAqiRaw
+        default: return nil
+        }
     }
 }
 
@@ -350,14 +449,66 @@ struct HistoryPeriod: Equatable {
     }
 }
 
+enum HistoryMetric: String, CaseIterable, Identifiable {
+    case aqi = "US AQI"
+    case pm25 = "PM2.5"
+    case pm10 = "PM10"
+    case pm = "PM2.5 + PM10"
+    case temp = "Temperature"
+    case humidity = "Humidity"
+
+    var id: String { rawValue }
+
+    var unit: String {
+        switch self {
+        case .aqi: return "US AQI"
+        case .pm25, .pm10, .pm: return "µg/m³"
+        case .temp: return "°C"
+        case .humidity: return "%"
+        }
+    }
+
+    var keys: [String] {
+        switch self {
+        case .aqi: return ["us_aqi"]
+        case .pm25: return ["pm2_5"]
+        case .pm10: return ["pm10"]
+        case .pm: return ["pm2_5", "pm10"]
+        case .temp: return ["temp"]
+        case .humidity: return ["humidity"]
+        }
+    }
+
+    var names: [String] {
+        switch self {
+        case .pm: return ["PM2.5", "PM10"]
+        default: return [rawValue]
+        }
+    }
+
+    var decimals: Int {
+        switch self {
+        case .aqi, .humidity: return 0
+        default: return 1
+        }
+    }
+}
+
+enum HistoryMode: String, CaseIterable, Identifiable {
+    case cal = "Calibrated"
+    case raw = "Raw"
+    case both = "Both"
+
+    var id: String { rawValue }
+}
+
 struct HistoryState {
     var isLoading = false
     var data: [HistoricalDataPoint] = []
-    var stats: HistoricalStats? = nil
     var selectedRange = "1w"
-    var selectedSensor = "zone"
-    var showPm25 = true
-    var showPm10 = true
+    var interval = "1h"
+    var metric: HistoryMetric = .aqi
+    var mode: HistoryMode = .cal
     var customRange = "14d"
     var customInterval = "1h"
     var showCustomInputs = false
@@ -367,5 +518,98 @@ struct HistoryState {
     var periodActive = false
     var periodMode: HistoryPeriodMode = .month
     var period: HistoryPeriod? = nil
+    var compareIds: [String] = []
+    var compareRows: [String: [HistoricalDataPoint]] = [:]
+    var compareLoading = false
 }
 
+extension Zone {
+    var isEstimate: Bool {
+        if let kind {
+            return kind == "estimate"
+        }
+        return provider?.localizedCaseInsensitiveContains("airgradient") != true
+    }
+}
+
+extension AqiResponse {
+    var isEstimate: Bool {
+        if let kind {
+            return kind == "estimate"
+        }
+        return source?.localizedCaseInsensitiveContains("airgradient") != true
+    }
+
+    var isSensorOffline: Bool {
+        !isEstimate && (source?.hasPrefix("openmeteo") ?? false)
+    }
+
+    func asRaw() -> AqiResponse {
+        guard let raw else {
+            return self
+        }
+        var copy = self
+        copy.nAqi = raw.nAqi ?? nAqi
+        copy.usAqi = raw.usAqi ?? usAqi
+        copy.mainPollutant = raw.mainPollutant ?? mainPollutant
+        copy.usMainPollutant = raw.usMainPollutant ?? raw.mainPollutant ?? usMainPollutant
+        var merged = concentrations ?? [:]
+        if let pm25 = raw.pm25 {
+            merged["pm2_5"] = pm25
+        }
+        if let pm10 = raw.pm10 {
+            merged["pm10"] = pm10
+        }
+        copy.concentrations = merged
+        if let rawAverages = averages24hRaw, !rawAverages.isEmpty {
+            copy.averages24h = rawAverages
+        }
+        if let history, history.contains(where: { $0.pm25Raw != nil }) {
+            copy.history = history.compactMap { $0.asRaw() }
+        }
+        copy.readings = SensorReadings(pm25: raw.pm25, pm10: raw.pm10, temp: raw.temp, humidity: raw.humidity)
+        copy.showingRaw = true
+        return copy
+    }
+}
+
+extension HistoryPoint {
+    func asRaw() -> HistoryPoint? {
+        guard let pm25Raw else {
+            return nil
+        }
+        var copy = self
+        copy.aqi = aqiRaw ?? aqi
+        copy.usAqi = usAqiRaw ?? usAqi
+        copy.pm25 = pm25Raw
+        copy.pm10 = pm10Raw ?? pm10
+        return copy
+    }
+}
+
+func migratePinnedIds(_ pinned: [String], zones: [Zone]) -> [String] {
+    guard !zones.isEmpty else {
+        return pinned
+    }
+    let known = Set(zones.map(\.id))
+    var next: [String] = []
+    for id in pinned {
+        if known.contains(id) {
+            if !next.contains(id) {
+                next.append(id)
+            }
+            continue
+        }
+        let replacements = zones.filter { $0.legacyZone == id }
+        if replacements.isEmpty {
+            if !next.contains(id) {
+                next.append(id)
+            }
+            continue
+        }
+        for zone in replacements where !next.contains(zone.id) {
+            next.append(zone.id)
+        }
+    }
+    return next
+}

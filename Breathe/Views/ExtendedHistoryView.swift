@@ -27,23 +27,47 @@
 import SwiftUI
 import Charts
 
-private struct SeriesPoint: Identifiable {
+struct ChartLine: Identifiable {
+    let id: String
+    let label: String
+    let color: Color
+    let dashed: Bool
+    let width: CGFloat
+    let points: [(date: Date, value: Double)]
+}
+
+private struct ChartSegmentPoint: Identifiable {
+    let id: String
+    let line: String
+    let segment: String
     let date: Date
     let value: Double
-    let series: String
-
-    var id: String { "\(series)-\(date.timeIntervalSince1970)" }
+    let color: Color
+    let dashed: Bool
+    let width: CGFloat
 }
+
+private let compareColorsLight: [Color] = [
+    Color(hex: 0xEB6834), Color(hex: 0x1BAF7A), Color(hex: 0xEDA100), Color(hex: 0xE87BA4),
+    Color(hex: 0x008300), Color(hex: 0x6250D6), Color(hex: 0xE34948),
+]
+private let compareColorsDark: [Color] = [
+    Color(hex: 0xD95926), Color(hex: 0x199E70), Color(hex: 0xC98500), Color(hex: 0xD55181),
+    Color(hex: 0x008300), Color(hex: 0x9085E9), Color(hex: 0xE66767),
+]
 
 struct ExtendedHistoryView: View {
     let zoneName: String
-    let nodeKeys: [String]
+    let placeText: String
+    let district: String?
 
     @EnvironmentObject private var viewModel: BreatheViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var selectedDate: Date? = nil
-    @State private var chartMode = 0
+    @State private var hourSelection: Date? = nil
+    @State private var compareSelection: Date? = nil
 
     private var state: HistoryState {
         viewModel.historyState
@@ -59,11 +83,10 @@ struct ExtendedHistoryView: View {
 
     private var filteredData: [HistoricalDataPoint] {
         filterHistoryByWeather(data: state.data, weather: weatherHistory, filter: state.weatherFilter)
-            .sorted { $0.ts < $1.ts }
     }
 
-    private var impactCards: [WeatherPm25Group] {
-        weatherImpactCards(data: state.data, weather: weatherHistory)
+    private var series: [HistorySeries] {
+        activeSeries(metric: state.metric, mode: state.mode)
     }
 
     private var rangeSelection: Binding<String> {
@@ -96,14 +119,13 @@ struct ExtendedHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Picker("Range", selection: rangeSelection) {
-                    Text("1W").tag("1w")
-                    Text("1M").tag("1mo")
-                    Text("6M").tag("6mo")
-                    Text("Date").tag("date")
-                    Text("Custom").tag("custom")
+                if !placeText.isEmpty {
+                    Text(placeText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .pickerStyle(.segmented)
+
+                controlsCard
 
                 if state.periodActive, let period = state.period {
                     periodCard(period: period)
@@ -115,9 +137,7 @@ struct ExtendedHistoryView: View {
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
-                seriesRow
-
-                if !state.isLoading, let weatherHistory, !weatherHistory.points.isEmpty {
+                if !state.isLoading, weatherGroups.count >= 2 {
                     WeatherFilterChips(
                         selectedFilter: state.weatherFilter,
                         presentConditions: Set(weatherGroups.filter { $0.value.count > 0 }.keys),
@@ -128,18 +148,37 @@ struct ExtendedHistoryView: View {
                     )
                 }
 
-                chartCard
+                rawNoteCard
 
-                if !state.isLoading, let stats = state.stats {
-                    statsCard(stats: stats)
-                }
-
-                if !state.isLoading, !impactCards.isEmpty {
-                    WeatherImpactPanel(cards: impactCards)
+                if state.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                } else if let error = state.error {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .card()
+                } else if filteredData.isEmpty {
+                    Text(state.data.isEmpty ? "No readings for this selection." : "No readings during this weather.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 160)
+                        .card()
+                } else {
+                    summaryCard
+                    mainChartCard
+                    gridCard
+                    if intervalSeconds(state.interval) <= 3600 {
+                        hourCard
+                    }
+                    weatherCard
+                    compareCard
                 }
 
                 downloadRow
             }
+            .frame(maxWidth: 900)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
             .animation(reduceMotion ? .none : .snappy, value: state.periodActive)
@@ -155,73 +194,70 @@ struct ExtendedHistoryView: View {
 
     // MARK: - Controls
 
-    private var seriesRow: some View {
-        HStack(spacing: 8) {
-            if !nodeKeys.isEmpty {
-                Menu {
-                    Picker("Sensor", selection: Binding(
-                        get: { viewModel.historyState.selectedSensor },
-                        set: { sensor in
-                            selectedDate = nil
-                            viewModel.setHistorySensor(sensor)
-                        }
-                    )) {
-                        Text("Zone average").tag("zone")
-                        ForEach(nodeKeys, id: \.self) { key in
-                            Text(key).tag(key)
-                        }
+    private var controlsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Show")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Picker("Show", selection: Binding(
+                    get: { viewModel.historyState.metric },
+                    set: { viewModel.setHistoryMetric($0) }
+                )) {
+                    ForEach(HistoryMetric.allCases) { metric in
+                        Text(metric.rawValue).tag(metric)
                     }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.caption)
-                        Text(state.selectedSensor == "zone" ? "Zone average" : state.selectedSensor)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.caption2)
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
                 }
-                .tint(.primary)
+                .pickerStyle(.menu)
             }
 
-            Spacer(minLength: 0)
+            Picker("Readings", selection: Binding(
+                get: { viewModel.historyState.mode },
+                set: { viewModel.setHistoryMode($0) }
+            )) {
+                ForEach(HistoryMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
 
-            seriesToggle("PM2.5", color: SeriesPalette.pm25, isOn: state.showPm25) {
-                selectedDate = nil
-                viewModel.toggleHistoryPm25()
+            Picker("Range", selection: rangeSelection) {
+                Text("1W").tag("1w")
+                Text("1M").tag("1mo")
+                Text("6M").tag("6mo")
+                Text("Date").tag("date")
+                Text("Custom").tag("custom")
             }
-            seriesToggle("PM10", color: SeriesPalette.pm10, isOn: state.showPm10) {
-                selectedDate = nil
-                viewModel.toggleHistoryPm10()
-            }
+            .pickerStyle(.segmented)
         }
+        .card()
     }
 
-    private func seriesToggle(_ label: String, color: Color, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(isOn ? color : Color.secondary.opacity(0.4))
-                    .frame(width: 8, height: 8)
-                Text(label)
+    @ViewBuilder
+    private var rawNoteCard: some View {
+        if state.mode != .cal, !state.isLoading, state.error == nil {
+            if let note = rawNote(rows: state.data, metric: state.metric, interval: state.interval) {
+                Label(note, systemImage: "info.circle")
+                    .font(.subheadline)
+                    .card()
+            } else if !viewModel.rawHintHidden {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Showing the sensor's uncorrected readings.", systemImage: "info.circle")
+                        .font(.subheadline)
+                    HStack {
+                        NavigationLink("What changes") {
+                            RawExplainerView()
+                        }
+                        Spacer()
+                        Button("Don't show again") {
+                            viewModel.rawHintHidden = true
+                        }
+                    }
+                    .font(.subheadline)
+                }
+                .card()
             }
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .foregroundStyle(isOn ? Color.primary : Color.secondary)
-            .background(
-                Capsule()
-                    .fill(isOn ? color.opacity(0.16) : Color(.secondarySystemGroupedBackground))
-            )
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -333,204 +369,215 @@ struct ExtendedHistoryView: View {
         .card()
     }
 
-    // MARK: - Chart
+    // MARK: - Colours
 
-    private var chartCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Picker("Chart style", selection: $chartMode) {
-                Text("Trend").tag(0)
-                Text("Calendar").tag(1)
-            }
-            .pickerStyle(.segmented)
+    private var isDark: Bool {
+        colorScheme == .dark
+    }
 
-            if state.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 260)
-            } else if let error = state.error {
-                Label(error, systemImage: "exclamationmark.triangle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 160)
-            } else if filteredData.isEmpty {
-                Text(state.data.isEmpty ? "No readings for this selection." : "No readings during this weather.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 160)
-            } else if chartMode == 0 {
-                trendReadout
-                trendChart
-            } else {
-                ExtendedDotGrid(data: filteredData, showPm25: state.showPm25, showPm10: state.showPm10)
+    private func seriesColor(_ s: HistorySeries) -> Color {
+        switch s.hue {
+        case .raw: return isDark ? Color(hex: 0xD95926) : Color(hex: 0xEB6834)
+        case .secondary: return isDark ? Color(hex: 0x199E70) : Color(hex: 0x1BAF7A)
+        case .primary: return isDark ? Color(hex: 0x3987E5) : Color(hex: 0x2A78D6)
+        }
+    }
+
+    private func valueColor(key: String, value: Double?) -> Color {
+        guard let value else {
+            return .primary
+        }
+        let base = key.hasSuffix("_raw") ? String(key.dropLast(4)) : key
+        switch base {
+        case "us_aqi": return AqiPalette.color(Int(value.rounded()), isUsAqi: true)
+        case "pm2_5": return AqiPalette.color(bandSample(value, bands: pm25Bands), isUsAqi: true)
+        case "pm10": return AqiPalette.color(bandSample(value, bands: pm10Bands), isUsAqi: true)
+        default: return .primary
+        }
+    }
+
+    private func timeLabel(_ ts: Int, bucket: Int) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(ts))
+        if bucket >= 86400 {
+            return date.formatted(.dateTime.day().month(.abbreviated))
+        }
+        return date.formatted(.dateTime.day().month(.abbreviated).hour())
+    }
+
+    // MARK: - Summary
+
+    private var summaryCard: some View {
+        let points = filteredData
+        let unit = unitSuffix(state.metric.unit)
+        let step = intervalSeconds(state.interval)
+        let aqiKey = state.mode == .raw ? "us_aqi_raw" : "us_aqi"
+        var tally = Array(repeating: 0, count: 6)
+        for point in points {
+            if let v = point.value(aqiKey) {
+                tally[aqiBandIndex(Int(v.rounded()), isUsAqi: true)] += 1
             }
+        }
+        let tallied = tally.reduce(0, +)
+        let rows = state.data
+        let expected: Int
+        if rows.count > 1, let first = rows.first, let last = rows.last {
+            expected = (last.ts - first.ts) / step + 1
+        } else {
+            expected = rows.count
+        }
+        let coverage = expected > 0 ? min(100, Int((Double(rows.count) * 100 / Double(expected)).rounded())) : 0
+        let foot: String
+        if state.weatherFilter == "all" {
+            foot = "\(coverage)% of \(step <= 3600 ? "hours" : "buckets") have readings"
+        } else {
+            let label = weatherFilterLabels.first { $0.condition == state.weatherFilter }?.label.lowercased() ?? state.weatherFilter
+            foot = "Only \(label) hours, \(points.count) of \(rows.count)"
+        }
+
+        return VStack(alignment: .leading, spacing: 14) {
+            ForEach(series) { s in
+                let st = seriesStats(points, key: s.key)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(st.count == 0 ? s.label : "\(s.label) average")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if st.count == 0 {
+                        Text("No readings")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("\(formatValue(st.avg, decimals: state.metric.decimals))\(unit)")
+                            .font(.system(.title, design: .rounded))
+                            .fontWeight(.bold)
+                            .foregroundStyle(valueColor(key: s.key, value: st.avg))
+                        Text("Peak \(formatValue(st.maxValue, decimals: state.metric.decimals)) on \(timeLabel(st.maxTs ?? 0, bucket: step)) · low \(formatValue(st.minValue, decimals: state.metric.decimals))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+
+            if tallied > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(state.mode == .raw ? "Time in each US AQI category, raw" : "Time in each US AQI category")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    GeometryReader { geo in
+                        HStack(spacing: 2) {
+                            ForEach(0..<6, id: \.self) { index in
+                                if tally[index] > 0 {
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .fill(AqiPalette.color(usCategorySamples[index], isUsAqi: true))
+                                        .frame(width: max(2, (geo.size.width - 10) * CGFloat(tally[index]) / CGFloat(tallied)))
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 12)
+                    FlowLegend(items: (0..<6).filter { tally[$0] > 0 }.map { index in
+                        (
+                            AqiPalette.color(usCategorySamples[index], isUsAqi: true),
+                            "\(AqiPalette.label(usCategorySamples[index], isUsAqi: true)) \(Int((Double(tally[index]) * 100 / Double(tallied)).rounded()))%"
+                        )
+                    })
+                }
+            }
+
+            Text(foot)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .card()
     }
 
-    private var selectedPoint: HistoricalDataPoint? {
-        guard let selectedDate else {
-            return nil
-        }
-        let target = selectedDate.timeIntervalSince1970
-        return filteredData.min { abs(Double($0.ts) - target) < abs(Double($1.ts) - target) }
-    }
+    // MARK: - Charts
 
-    private func average(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else {
-            return nil
-        }
-        return values.reduce(0, +) / Double(values.count)
-    }
-
-    private var trendReadout: some View {
-        let point = selectedPoint
-        let pm25 = point.map { $0.pm25 } ?? average(filteredData.compactMap(\.pm25))
-        let pm10 = point.map { $0.pm10 } ?? average(filteredData.compactMap(\.pm10))
-        let caption = point.map {
-            Date(timeIntervalSince1970: TimeInterval($0.ts)).formatted(.dateTime.day().month(.abbreviated).hour().minute())
-        } ?? "Average over range"
-
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(caption)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-
-            HStack(alignment: .firstTextBaseline, spacing: 20) {
-                if state.showPm25 {
-                    readoutValue("PM2.5", value: pm25, color: SeriesPalette.pm25)
+    private func segmented(_ lines: [ChartLine], gap: TimeInterval) -> [ChartSegmentPoint] {
+        var out: [ChartSegmentPoint] = []
+        for line in lines {
+            var segment = 0
+            var previous: Date? = nil
+            for point in line.points {
+                if let previous, point.date.timeIntervalSince(previous) > gap {
+                    segment += 1
                 }
-                if state.showPm10 {
-                    readoutValue("PM10", value: pm10, color: SeriesPalette.pm10)
-                }
-                Spacer(minLength: 0)
-                Text("µg/m³")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func readoutValue(_ label: String, value: Double?, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 8, height: 8)
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Text(value.map { String(format: "%.1f", $0) } ?? "N/A")
-                .font(.system(.title2, design: .rounded))
-                .fontWeight(.bold)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-        }
-    }
-
-    private var trendChart: some View {
-        let data = filteredData
-        let showPm25 = state.showPm25
-        let showPm10 = state.showPm10
-        let primary = showPm25 ? "PM2.5" : "PM10"
-        let primaryColor = showPm25 ? SeriesPalette.pm25 : SeriesPalette.pm10
-
-        var points: [SeriesPoint] = []
-        for point in data {
-            let date = Date(timeIntervalSince1970: TimeInterval(point.ts))
-            if showPm25, let value = point.pm25 {
-                points.append(SeriesPoint(date: date, value: value, series: "PM2.5"))
-            }
-            if showPm10, let value = point.pm10 {
-                points.append(SeriesPoint(date: date, value: value, series: "PM10"))
-            }
-        }
-
-        let first = data.first.map { Date(timeIntervalSince1970: TimeInterval($0.ts)) } ?? Date()
-        let last = data.last.map { Date(timeIntervalSince1970: TimeInterval($0.ts)) } ?? Date()
-        let spansDays = last.timeIntervalSince(first) > 2 * 86400
-        let labelFormat: Date.FormatStyle = spansDays
-            ? .dateTime.day().month(.abbreviated)
-            : .dateTime.hour()
-        let selected = selectedPoint
-        let span = last.timeIntervalSince(first)
-        let xTicks = [0.1, 0.37, 0.63, 0.9].map { first.addingTimeInterval(span * $0) }
-
-        return Chart {
-            ForEach(points.filter { $0.series == primary }) { point in
-                AreaMark(
-                    x: .value("Time", point.date),
-                    y: .value("Concentration", point.value)
-                )
-                .interpolationMethod(.monotone)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [primaryColor.opacity(0.25), primaryColor.opacity(0.02)],
-                        startPoint: .top,
-                        endPoint: .bottom
+                previous = point.date
+                out.append(
+                    ChartSegmentPoint(
+                        id: "\(line.id)-\(point.date.timeIntervalSince1970)",
+                        line: line.label,
+                        segment: "\(line.id)#\(segment)",
+                        date: point.date,
+                        value: point.value,
+                        color: line.color,
+                        dashed: line.dashed,
+                        width: line.width
                     )
                 )
+            }
+        }
+        return out
+    }
+
+    private func historyChart(
+        lines: [ChartLine],
+        bands: [Double]?,
+        gap: TimeInterval,
+        beginAtZero: Bool,
+        hourAxis: Bool,
+        selection: Binding<Date?>,
+        height: CGFloat
+    ) -> some View {
+        let points = segmented(lines, gap: gap)
+        let values = points.map(\.value)
+        let rawMin = values.min() ?? 0
+        let rawMax = values.max() ?? 1
+        let yMin = beginAtZero ? 0 : (rawMin - (rawMax - rawMin) * 0.1 - 1).rounded(.down)
+        let yMax = max(rawMax + (rawMax - yMin) * 0.08, yMin + 1)
+        let dates = points.map(\.date)
+        let first = dates.min() ?? Date()
+        let last = max(dates.max() ?? Date(), first.addingTimeInterval(60))
+        let selected = selection.wrappedValue
+
+        return Chart {
+            if let bands {
+                ForEach(0..<(bands.count - 1), id: \.self) { index in
+                    let low = max(bands[index], yMin)
+                    let high = min(bands[index + 1], yMax)
+                    if high > low {
+                        RectangleMark(
+                            xStart: .value("Start", first),
+                            xEnd: .value("End", last),
+                            yStart: .value("Low", low),
+                            yEnd: .value("High", high)
+                        )
+                        .foregroundStyle(AqiPalette.color(usCategorySamples[index], isUsAqi: true).opacity(0.09))
+                    }
+                }
             }
 
             ForEach(points) { point in
                 LineMark(
                     x: .value("Time", point.date),
-                    y: .value("Concentration", point.value),
-                    series: .value("Series", point.series)
+                    y: .value("Value", point.value),
+                    series: .value("Line", point.segment)
                 )
                 .interpolationMethod(.monotone)
-                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                .foregroundStyle(point.series == "PM2.5" ? SeriesPalette.pm25 : SeriesPalette.pm10)
-            }
-
-            if showPm25 {
-                RuleMark(y: .value("WHO PM2.5", 15))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(SeriesPalette.pm25.opacity(0.6))
-                    .annotation(position: .top, alignment: .leading, spacing: 2) {
-                        Text("WHO 24h PM2.5")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-            }
-
-            if showPm10 {
-                RuleMark(y: .value("WHO PM10", 45))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(SeriesPalette.pm10.opacity(0.6))
-                    .annotation(position: .top, alignment: .trailing, spacing: 2) {
-                        Text("WHO 24h PM10")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                .foregroundStyle(point.color)
+                .lineStyle(StrokeStyle(lineWidth: point.width, lineCap: .round, lineJoin: .round, dash: point.dashed ? [6, 4] : []))
             }
 
             if let selected {
-                let date = Date(timeIntervalSince1970: TimeInterval(selected.ts))
-
-                RuleMark(x: .value("Selected", date))
+                RuleMark(x: .value("Selected", selected))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .foregroundStyle(Color.secondary.opacity(0.6))
-
-                if showPm25, let value = selected.pm25 {
-                    PointMark(x: .value("Time", date), y: .value("Concentration", value))
-                        .symbol {
-                            ChartSelectionDot(color: SeriesPalette.pm25)
-                        }
-                }
-
-                if showPm10, let value = selected.pm10 {
-                    PointMark(x: .value("Time", date), y: .value("Concentration", value))
-                        .symbol {
-                            ChartSelectionDot(color: SeriesPalette.pm10)
-                        }
-                }
             }
         }
-        .chartXSelection(value: $selectedDate)
+        .chartXSelection(value: selection)
         .chartXScale(domain: first...last)
+        .chartYScale(domain: yMin...yMax)
+        .chartLegend(.hidden)
         .chartYAxis {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 5)) { _ in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
@@ -540,79 +587,427 @@ struct ExtendedHistoryView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: xTicks) { _ in
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(Color.secondary.opacity(0.2))
-                AxisValueLabel(format: labelFormat, centered: true)
-                    .font(.caption2)
+                if hourAxis {
+                    AxisValueLabel(format: .dateTime.hour())
+                        .font(.caption2)
+                } else {
+                    AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                        .font(.caption2)
+                }
             }
         }
-        .frame(height: 240)
-        .sensoryFeedback(.selection, trigger: selected?.ts)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("PM concentrations over the selected range")
+        .frame(height: height)
     }
 
-    // MARK: - Summary
+    private func readout(lines: [ChartLine], at date: Date?, hourAxis: Bool) -> some View {
+        let text: String
+        if let date {
+            let parts = lines.compactMap { line -> String? in
+                guard let nearest = line.points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }) else {
+                    return nil
+                }
+                var part = "\(line.label) \(formatValue(nearest.value, decimals: state.metric.decimals))\(unitSuffix(state.metric.unit))"
+                if state.metric == .aqi && !hourAxis {
+                    part += " (\(AqiPalette.label(Int(nearest.value.rounded()), isUsAqi: true)))"
+                }
+                return part
+            }
+            let when = hourAxis ? date.formatted(.dateTime.hour()) : date.formatted(.dateTime.day().month(.abbreviated).hour())
+            text = "\(when) · \(parts.isEmpty ? "no reading" : parts.joined(separator: " · "))"
+        } else {
+            text = "Touch and drag across the chart for readings"
+        }
+        return Text(text)
+            .font(.footnote)
+            .foregroundStyle(date == nil ? .secondary : .primary)
+            .lineLimit(3)
+    }
 
-    private func statsCard(stats: HistoricalStats) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Summary")
+    private func legend(_ lines: [ChartLine]) -> some View {
+        FlowLegend(items: lines.map { ($0.color, $0.label) })
+    }
+
+    private var mainChartCard: some View {
+        let bucket = displayBucket(filteredData, interval: state.interval)
+        let rows = aggregate(filteredData, bucket: bucket, interval: state.interval, keys: series.map(\.key))
+        let lines = series.map { s in
+            ChartLine(
+                id: s.key,
+                label: s.label,
+                color: seriesColor(s),
+                dashed: s.raw,
+                width: 2,
+                points: rows.compactMap { row in
+                    row.values[s.key].map { (date: Date(timeIntervalSince1970: TimeInterval(row.ts)), value: $0) }
+                }
+            )
+        }
+        let step = bucket >= 86400 ? "daily averages" : (bucket >= 4 * 3600 ? "4 hour averages" : "hourly")
+        let shaded = state.metric.bands == nil ? "" : ", shaded by US AQI category"
+
+        return VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.metric.rawValue)
                     .font(.headline)
-                Spacer()
-                Text("µg/m³")
-                    .font(.caption)
+                Text("\(state.metric.unit), \(step)\(shaded)")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-
-            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 10) {
-                GridRow {
-                    Text("")
-                        .gridColumnAlignment(.leading)
-                    gridHeader("Average")
-                    gridHeader("Lowest")
-                    gridHeader("Highest")
-                }
-
-                Divider()
-                    .gridCellUnsizedAxes(.horizontal)
-
-                statRow("PM2.5", color: SeriesPalette.pm25, values: [stats.avgPm25, stats.minPm25, stats.maxPm25])
-
-                Divider()
-                    .gridCellUnsizedAxes(.horizontal)
-
-                statRow("PM10", color: SeriesPalette.pm10, values: [stats.avgPm10, stats.minPm10, stats.maxPm10])
+            if lines.count > 1 {
+                legend(lines)
             }
-            .font(.subheadline)
+            readout(lines: lines, at: selectedDate, hourAxis: false)
+            historyChart(
+                lines: lines,
+                bands: state.metric.bands,
+                gap: TimeInterval(bucket) * 1.5,
+                beginAtZero: state.metric != .temp,
+                hourAxis: false,
+                selection: $selectedDate,
+                height: 240
+            )
+            .sensoryFeedback(.selection, trigger: selectedDate)
         }
         .card()
     }
 
-    private func gridHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
-
-    private func statRow(_ label: String, color: Color, values: [Double?]) -> some View {
-        GridRow {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 8, height: 8)
-                Text(label)
-                    .fontWeight(.medium)
+    private var gridCard: some View {
+        let raw = state.mode == .raw
+        let mapped = filteredData.map { point -> HistoricalDataPoint in
+            var copy = point
+            if raw {
+                copy.pm25 = point.pm25Raw
+                copy.pm10 = point.pm10Raw
             }
-            .gridColumnAlignment(.leading)
+            return copy
+        }.filter { $0.pm25 != nil || $0.pm10 != nil }
 
-            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                Text(value.map { String(format: "%.1f", $0) } ?? "N/A")
-                    .fontWeight(index == 0 ? .bold : .regular)
-                    .monospacedDigit()
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Day by Day")
+                .font(.headline)
+            if mapped.isEmpty {
+                Text("No particulate readings in this selection.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ExtendedDotGrid(data: mapped, showPm25: true, showPm10: true)
             }
         }
+        .card()
+    }
+
+    private var hourCard: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let lines = series.map { s -> ChartLine in
+            var sums = Array(repeating: 0.0, count: 24)
+            var counts = Array(repeating: 0, count: 24)
+            for point in filteredData {
+                guard let v = point.value(s.key) else {
+                    continue
+                }
+                let hour = calendar.component(.hour, from: Date(timeIntervalSince1970: TimeInterval(point.ts)))
+                sums[hour] += v
+                counts[hour] += 1
+            }
+            let points = (0..<24).compactMap { hour -> (date: Date, value: Double)? in
+                guard counts[hour] > 0 else {
+                    return nil
+                }
+                let date = calendar.date(byAdding: .hour, value: hour, to: today) ?? today
+                return (date: date, value: sums[hour] / Double(counts[hour]))
+            }
+            return ChartLine(id: s.key, label: s.label, color: seriesColor(s), dashed: s.raw, width: 2, points: points)
+        }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Hour of Day")
+                    .font(.headline)
+                Text("Average \(state.metric.rawValue) at each hour, local time")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if lines.count > 1 {
+                legend(lines)
+            }
+            readout(lines: lines, at: hourSelection, hourAxis: true)
+            historyChart(
+                lines: lines,
+                bands: state.metric.bands,
+                gap: 5400,
+                beginAtZero: state.metric != .temp,
+                hourAxis: true,
+                selection: $hourSelection,
+                height: 180
+            )
+        }
+        .card()
+    }
+
+    @ViewBuilder
+    private var weatherCard: some View {
+        if let key = series.first?.key {
+            let cards = weatherImpactCards(data: state.data, weather: weatherHistory) { $0.value(key) }
+            if !cards.isEmpty {
+                WeatherImpactPanel(
+                    cards: cards,
+                    title: "Average \(series.first?.label ?? "") by weather",
+                    unit: state.metric.unit,
+                    decimals: state.metric.decimals,
+                    judged: state.metric != .temp && state.metric != .humidity
+                )
+            }
+        }
+    }
+
+    // MARK: - Compare
+
+    private func compareColor(_ index: Int, total: Int) -> Color {
+        if total > compareColorsLight.count {
+            return Color.secondary.opacity(0.45)
+        }
+        let palette = isDark ? compareColorsDark : compareColorsLight
+        return palette[index % palette.count]
+    }
+
+    private func toneColor(_ tone: VerdictTone) -> Color {
+        switch tone {
+        case .good: return .green
+        case .fair: return .orange
+        case .poor: return .red
+        case .none: return .secondary
+        }
+    }
+
+    private var compareCard: some View {
+        let places = viewModel.comparablePlaces
+        let ids = state.compareIds
+        let key = compareKey(metric: state.metric, mode: state.mode)
+        let label = compareLabel(metric: state.metric, mode: state.mode)
+        let nameOf: (String) -> String = { id in places.first { $0.id == id }?.name ?? id }
+        let others = Dictionary(uniqueKeysWithValues: ids.map { id in
+            (id, filterHistoryByWeather(data: state.compareRows[id] ?? [], weather: weatherHistory, filter: state.weatherFilter))
+        })
+
+        return VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Compare Sensors")
+                    .font(.headline)
+                Text("Overlay \(label) from other sensors on \(zoneName) for the same range")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Menu {
+                if let district, places.contains(where: { $0.district == district }) {
+                    Button("Same District") {
+                        viewModel.setCompareIds(places.filter { $0.district == district }.map(\.id))
+                    }
+                }
+                Button("All Sensors") {
+                    viewModel.setCompareIds(places.map(\.id))
+                }
+                if !ids.isEmpty {
+                    Button("Clear", role: .destructive) {
+                        viewModel.setCompareIds([])
+                    }
+                }
+                Divider()
+                ForEach(places.sorted { ($0.district ?? "", $0.name) < ($1.district ?? "", $1.name) }) { place in
+                    Button {
+                        viewModel.toggleCompare(place.id)
+                    } label: {
+                        if ids.contains(place.id) {
+                            Label(place.name, systemImage: "checkmark")
+                        } else {
+                            Text(place.name)
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Label(ids.isEmpty ? "Choose sensors" : "\(ids.count) sensor\(ids.count == 1 ? "" : "s")", systemImage: "plus.circle")
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            if state.compareLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            }
+
+            if !ids.isEmpty {
+                compareResults(ids: ids, key: key, label: label, others: others, nameOf: nameOf)
+            }
+        }
+        .card()
+    }
+
+    @ViewBuilder
+    private func compareResults(
+        ids: [String],
+        key: String,
+        label: String,
+        others: [String: [HistoricalDataPoint]],
+        nameOf: @escaping (String) -> String
+    ) -> some View {
+        let base = filteredData
+        let bucket = displayBucket(base, interval: state.interval)
+        let many = ids.count > compareColorsLight.count
+        let toPoints: ([HistoricalDataPoint]) -> [(date: Date, value: Double)] = { rows in
+            aggregate(rows, bucket: bucket, interval: state.interval, keys: [key]).compactMap { row in
+                row.values[key].map { (date: Date(timeIntervalSince1970: TimeInterval(row.ts)), value: $0) }
+            }
+        }
+        let baseLine = ChartLine(
+            id: "base",
+            label: zoneName,
+            color: isDark ? Color(hex: 0x3987E5) : Color(hex: 0x2A78D6),
+            dashed: false,
+            width: 3,
+            points: toPoints(base)
+        )
+        let otherLines = ids.enumerated().map { index, id in
+            ChartLine(
+                id: id,
+                label: nameOf(id),
+                color: compareColor(index, total: ids.count),
+                dashed: false,
+                width: many ? 1.25 : 2,
+                points: toPoints(others[id] ?? [])
+            )
+        }
+        let lines = otherLines + [baseLine]
+        let baseSeries = seriesByTs(base, key: key)
+        let results = ids.map { id -> (id: String, stats: PairStats, verdict: Verdict) in
+            let stats = pairStats(baseSeries, seriesByTs(others[id] ?? [], key: key))
+            return (id: id, stats: stats, verdict: verdictFor(stats, metric: state.metric))
+        }.sorted { ($0.stats.r ?? -2) > ($1.stats.r ?? -2) }
+        let good = results.filter { $0.verdict.tone == .good }.count
+        let counted = results.filter { $0.verdict.tone != .none }.count
+        let unit = unitSuffix(state.metric.unit)
+
+        if !many {
+            legend([baseLine] + otherLines)
+        }
+        readout(lines: [baseLine] + otherLines, at: compareSelection, hourAxis: false)
+        historyChart(
+            lines: lines,
+            bands: state.metric.bands,
+            gap: TimeInterval(bucket) * 1.5,
+            beginAtZero: state.metric != .temp,
+            hourAxis: false,
+            selection: $compareSelection,
+            height: 240
+        )
+
+        Text(counted == 0
+             ? "Not enough overlapping \(label) readings in this range to judge."
+             : "\(good) of \(counted) sensor\(counted == 1 ? "" : "s") track \(zoneName) closely on \(label).")
+            .font(.subheadline)
+            .fontWeight(.semibold)
+
+        ForEach(results, id: \.id) { result in
+            HStack(alignment: .top, spacing: 10) {
+                Circle()
+                    .fill(compareColor(ids.firstIndex(of: result.id) ?? 0, total: ids.count))
+                    .frame(width: 10, height: 10)
+                    .padding(.top, 5)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(nameOf(result.id))
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(result.verdict.label)
+                            .font(.subheadline)
+                            .foregroundStyle(toneColor(result.verdict.tone))
+                    }
+                    let r = result.stats.r.map { String(format: "%.2f", $0) } ?? "--"
+                    let ratio = result.stats.ratio.map { String(format: "%.2f×", $0) } ?? "--"
+                    let gap = result.stats.gap.map { "\(formatValue($0, decimals: state.metric.decimals))\(unit)" } ?? "--"
+                    Text("Moves together \(r) · ratio \(ratio) · gap \(gap) · \(result.stats.n) hours")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+        }
+
+        Text("Moves together is the correlation. 1 means they rise and fall at exactly the same times, 0 means no link at all. Typical ratio is their reading over \(zoneName)'s, so 1.20× means they usually read 20% higher. Typical gap is how far apart the two readings are on average. A pair can move together closely and still sit at different levels, which usually means one sensor reads high or low rather than the air being different.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+        if ids.count >= 2 {
+            compareMatrix(
+                names: [zoneName] + ids.map(nameOf),
+                maps: [baseSeries] + ids.map { seriesByTs(others[$0] ?? [], key: key) },
+                label: label
+            )
+        }
+    }
+
+    private func compareMatrix(names: [String], maps: [[Int: Double]], label: String) -> some View {
+        let cell: CGFloat = 52
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Every Pair")
+                .font(.headline)
+            Text("How closely each pair moves together on \(label), from 0 to 1. Darker means more consistent.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal) {
+                Grid(horizontalSpacing: 2, verticalSpacing: 2) {
+                    GridRow {
+                        Color.clear
+                            .frame(width: 110, height: cell)
+                        ForEach(names.indices, id: \.self) { j in
+                            Text(names[j])
+                                .font(.caption2)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                                .frame(width: cell, height: cell, alignment: .bottom)
+                        }
+                    }
+                    ForEach(names.indices, id: \.self) { i in
+                        GridRow {
+                            Text(names[i])
+                                .font(.caption)
+                                .lineLimit(2)
+                                .frame(width: 110, height: cell, alignment: .leading)
+                            ForEach(names.indices, id: \.self) { j in
+                                matrixCell(i == j ? nil : pairStats(maps[i], maps[j]), isSelf: i == j, size: cell)
+                            }
+                        }
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .padding(.top, 4)
+    }
+
+    private func matrixCell(_ stats: PairStats?, isSelf: Bool, size: CGFloat) -> some View {
+        let r: Double? = stats.flatMap { $0.n >= compareMinOverlap ? $0.r : nil }
+        let strength = min(max(r ?? 0, 0), 1)
+        let blue = isDark ? Color(hex: 0x3987E5) : Color(hex: 0x2A78D6)
+        let fill: Color = isSelf ? Color(.tertiarySystemFill) : (r == nil ? Color.clear : blue.opacity(0.08 + strength * 0.65))
+        return ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(fill)
+            if !isSelf {
+                Text(r.map { String(format: "%.2f", $0) } ?? "--")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(strength > 0.6 ? Color.white : Color.primary)
+            }
+        }
+        .frame(width: size, height: size)
     }
 
     // MARK: - Download
@@ -681,21 +1076,53 @@ struct WeatherFilterChips: View {
     }
 }
 
+struct FlowLegend: View {
+    let items: [(Color, String)]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                entries
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                entries
+            }
+        }
+    }
+
+    private var entries: some View {
+        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(item.0)
+                    .frame(width: 10, height: 10)
+                Text(item.1)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 // MARK: - Weather Impact
 
 struct WeatherImpactPanel: View {
     let cards: [WeatherPm25Group]
+    var title: String = "PM2.5 by Weather"
+    var unit: String = "µg/m³"
+    var decimals: Int = 1
+    var judged: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("PM2.5 by Weather")
+            Text(title)
                 .font(.headline)
 
             ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
                 if index > 0 {
                     Divider()
                 }
-                WeatherImpactRow(card: card)
+                WeatherImpactRow(card: card, unit: unit, decimals: decimals, judged: judged)
             }
         }
         .card()
@@ -704,6 +1131,9 @@ struct WeatherImpactPanel: View {
 
 private struct WeatherImpactRow: View {
     let card: WeatherPm25Group
+    let unit: String
+    let decimals: Int
+    let judged: Bool
 
     private var diffText: String {
         if card.diffPct == 0 {
@@ -713,6 +1143,13 @@ private struct WeatherImpactRow: View {
             return "\(card.diffPct)% above average"
         }
         return "\(-card.diffPct)% below average"
+    }
+
+    private var diffColor: Color {
+        if !judged {
+            return .secondary
+        }
+        return card.diffPct > 0 ? Color.orange : Color.green
     }
 
     var body: some View {
@@ -734,12 +1171,12 @@ private struct WeatherImpactRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(String(format: "%.1f µg/m³", card.avg))
+                Text("\(formatValue(card.avg, decimals: decimals))\(unitSuffix(unit))")
                     .fontWeight(.semibold)
                     .monospacedDigit()
                 Text(diffText)
                     .font(.caption)
-                    .foregroundStyle(card.diffPct > 0 ? Color.orange : Color.green)
+                    .foregroundStyle(diffColor)
             }
         }
         .accessibilityElement(children: .combine)

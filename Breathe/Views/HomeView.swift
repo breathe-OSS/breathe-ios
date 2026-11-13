@@ -94,7 +94,7 @@ struct HomeView: View {
             }
 #if DEBUG
             .navigationDestination(isPresented: $shotExtendedHistory) {
-                extendedHistoryView(nodes: viewModel.currentAqi?.nodes)
+                extendedHistoryView()
             }
 #endif
             .navigationTitle(homeTitle)
@@ -396,11 +396,47 @@ struct HomeView: View {
 
     @ViewBuilder
     private func aqiSection(aqi: Int, response: AqiResponse) -> some View {
-        let provider = response.source ?? viewModel.selectedZone?.provider ?? ""
-        let isOpenMeteo = provider.localizedCaseInsensitiveContains("open-meteo") || provider.localizedCaseInsensitiveContains("openmeteo")
-        let isAirGradient = provider.localizedCaseInsensitiveContains("airgradient")
-        sourceRow(isAirGradient: isAirGradient, isOpenMeteo: isOpenMeteo)
+        let isAirGradient = !response.isEstimate
+        sourceRow(response: response)
+        if isAirGradient {
+            Picker("Readings", selection: $viewModel.rawMode) {
+                Text("Calibrated").tag(false)
+                Text("Raw").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .disabled(response.raw == nil && !viewModel.rawMode)
+        }
+        rawNotice(response: response)
         dashboardLayout(aqi: aqi, response: response, isAirGradient: isAirGradient)
+    }
+
+    @ViewBuilder
+    private func rawNotice(response: AqiResponse) -> some View {
+        if response.showingRaw && !viewModel.rawHintHidden {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Showing this sensor's uncorrected readings.", systemImage: "info.circle")
+                    .font(.subheadline)
+                HStack {
+                    NavigationLink("What changes") {
+                        RawExplainerView()
+                    }
+                    Spacer()
+                    Button("Don't show again") {
+                        viewModel.rawHintHidden = true
+                    }
+                }
+                .font(.subheadline)
+            }
+            .card()
+        } else if viewModel.rawMode && response.isEstimate {
+            Text("Raw readings are switched on, but there is no sensor here, so nothing changes.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else if viewModel.rawMode && response.raw == nil {
+            Text("Raw readings are switched on, but this sensor has no live reading to show raw, so these are the calibrated satellite numbers.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder
@@ -415,12 +451,17 @@ struct HomeView: View {
             ?? pm25Instant
         let cigarettes = calculateCigarettes(pm25: pm25)
 
+        let advice = healthAdviceFor(aqi, isUsAqi: viewModel.isUsAqi)
+
         if sizeClass == .regular {
             Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
                 GridRow {
                     aqiCard(aqi: aqi, response: response, fillsHeight: true)
 
                     VStack(spacing: 16) {
+                        ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
+                            .card()
+
                         if let weather = response.weather,
                            !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             WeatherContextCard(weather: weather)
@@ -440,7 +481,7 @@ struct HomeView: View {
                     .frame(maxHeight: .infinity, alignment: .top)
 
                     VStack(alignment: .leading, spacing: 10) {
-                        nodesSection(nodes: response.nodes)
+                        nodesSection(response: response)
                     }
                     .frame(maxHeight: .infinity, alignment: .top)
                 }
@@ -456,6 +497,8 @@ struct HomeView: View {
             }
         } else {
             aqiCard(aqi: aqi, response: response)
+            ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
+                .card()
             if let weather = response.weather,
                !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 WeatherContextCard(weather: weather)
@@ -464,39 +507,50 @@ struct HomeView: View {
             cigarettesCard(cigarettes: cigarettes)
                 .card()
             concentrationsSection(concentrations: response.concentrations)
-            nodesSection(nodes: response.nodes)
+            nodesSection(response: response)
             historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
         }
     }
 
     @ViewBuilder
-    private func sourceRow(isAirGradient: Bool, isOpenMeteo: Bool) -> some View {
-        HStack(spacing: 6) {
-            if isAirGradient {
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 7, height: 7)
-                Text("Live Ground Sensors")
-            } else if isOpenMeteo {
-                Image(systemName: "cloud.sun")
-                Text("Satellite & Model Data")
+    private func sourceRow(response: AqiResponse) -> some View {
+        let line = placeLine(district: response.district, division: response.division)
+        VStack(alignment: .leading, spacing: 4) {
+            if !line.isEmpty {
+                Text(line)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-
-            Spacer()
-
-            if isAirGradient {
-                Link(destination: URL(string: "https://www.airgradient.com/")!) {
-                    ProviderLogo(name: "air_gradient_logo", height: 18)
+            HStack(spacing: 6) {
+                if response.isEstimate {
+                    Image(systemName: "cloud.sun")
+                    Text("Satellite estimate, no sensor here yet")
+                } else if response.isSensorOffline {
+                    Image(systemName: "wifi.slash")
+                    Text("Sensor offline, showing a satellite estimate")
+                } else {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 7, height: 7)
+                    Text(response.showingRaw ? "Live ground sensor · raw readings" : "Live ground sensor")
                 }
-            } else if isOpenMeteo {
-                let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
-                Link(destination: URL(string: "https://www.open-meteo.com/")!) {
-                    ProviderLogo(name: assetName, height: 18)
+
+                Spacer()
+
+                if response.isEstimate {
+                    let assetName = colorScheme == .dark ? "open_meteo_logo" : "open_meteo_logo_light"
+                    Link(destination: URL(string: "https://www.open-meteo.com/")!) {
+                        ProviderLogo(name: assetName, height: 18)
+                    }
+                } else {
+                    Link(destination: URL(string: "https://www.airgradient.com/")!) {
+                        ProviderLogo(name: "air_gradient_logo", height: 18)
+                    }
                 }
             }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
         }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
@@ -517,7 +571,7 @@ struct HomeView: View {
 
                 Spacer()
 
-                Text(AqiPalette.standardName(isUsAqi: viewModel.isUsAqi))
+                Text(response.showingRaw ? "Raw \(AqiPalette.standardName(isUsAqi: viewModel.isUsAqi))" : AqiPalette.standardName(isUsAqi: viewModel.isUsAqi))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 10)
@@ -657,8 +711,8 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func nodesSection(nodes: [String: NodeReading]?) -> some View {
-        if let nodes, !nodes.isEmpty {
+    private func nodesSection(response: AqiResponse) -> some View {
+        if let nodes = response.nodes, !nodes.isEmpty {
             SectionHeader(title: "Sensors")
                 .padding(.top, 8)
                 .id("nodes")
@@ -668,7 +722,61 @@ struct HomeView: View {
                     NodeReadingCard(nodeName: key, reading: value, isUsAqi: viewModel.isUsAqi)
                 }
             }
+        } else if !response.isEstimate {
+            SectionHeader(title: "About this Sensor")
+                .padding(.top, 8)
+                .id("nodes")
+            aboutSensorCard(response: response)
         }
+    }
+
+    private func aboutSensorCard(response: AqiResponse) -> some View {
+        let info = viewModel.sensorInfos.first { $0.locationId == response.locationId }
+        let suffix = response.showingRaw ? " (raw)" : ""
+        let readings = response.readings
+        let rows: [(String, String)] = [
+            ("Temperature\(suffix)", readingText(readings?.temp, unit: " °C")),
+            ("Humidity\(suffix)", readingText(readings?.humidity, unit: "%")),
+            ("PM2.5\(suffix)", readingText(readings?.pm25, unit: " µg/m³")),
+            ("PM10\(suffix)", readingText(readings?.pm10, unit: " µg/m³")),
+        ]
+        let locationText = (response.locationId ?? info?.locationId).map { String($0) } ?? "--"
+        let facts: [(String, String)] = [
+            ("Provider", info?.provider ?? "AirGradient"),
+            ("Model", info?.model ?? "--"),
+            ("Location ID", locationText),
+            ("Installed", info?.installationDate ?? "--"),
+        ]
+        return VStack(alignment: .leading, spacing: 12) {
+            if readings != nil {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                    ForEach(rows, id: \.0) { label, value in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(label)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(value)
+                                .font(.headline)
+                                .monospacedDigit()
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                Divider()
+            }
+            ForEach(facts, id: \.0) { label, value in
+                LabeledContent(label, value: value)
+                    .font(.subheadline)
+            }
+        }
+        .card()
+    }
+
+    private func readingText(_ value: Double?, unit: String) -> String {
+        guard let value else {
+            return "--"
+        }
+        return String(format: "%.1f", value) + unit
     }
 
     @ViewBuilder
@@ -698,7 +806,7 @@ struct HomeView: View {
 
             if isAirGradient {
                 NavigationLink {
-                    extendedHistoryView(nodes: nodes)
+                    extendedHistoryView()
                 } label: {
                     HStack {
                         Label("Extended History", systemImage: "clock.arrow.circlepath")
@@ -716,10 +824,11 @@ struct HomeView: View {
         }
     }
 
-    private func extendedHistoryView(nodes: [String: NodeReading]?) -> some View {
+    private func extendedHistoryView() -> some View {
         ExtendedHistoryView(
             zoneName: viewModel.selectedZone?.name ?? "Zone",
-            nodeKeys: nodes?.keys.sorted() ?? []
+            placeText: placeLine(district: viewModel.currentAqi?.district, division: viewModel.currentAqi?.division),
+            district: viewModel.currentAqi?.district
         )
         .environmentObject(viewModel)
         .onAppear {

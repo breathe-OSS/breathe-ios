@@ -69,6 +69,17 @@ struct SettingsView: View {
                     }
 
                     Section {
+                        Toggle("Raw Readings", isOn: $viewModel.rawMode)
+                        NavigationLink {
+                            RawExplainerView()
+                        } label: {
+                            Text("What Changes")
+                        }
+                    } footer: {
+                        Text("Show what each sensor measured before AirGradient's correction. Satellite estimates don't change.")
+                    }
+
+                    Section {
                         Toggle("Pinned Overview", isOn: $pinnedOverview)
                     } footer: {
                         Text("Show every pinned location as a card on Home instead of one at a time.")
@@ -171,5 +182,26 @@ struct PersonRow: View {
 
     var body: some View {
         LinkRow(title: name, subtitle: "\(role), @\(handle)", url: "https://github.com/\(handle)")
+    }
+}
+
+struct RawExplainerView: View {
+    var body: some View {
+        List {
+            ForEach(rawExplainerPoints) { point in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(point.title)
+                        .font(.headline)
+                    Text(point.text)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle("Raw Readings")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 }

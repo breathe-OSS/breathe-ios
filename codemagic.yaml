@@ -1,56 +1,46 @@
-workflows:
-  unsigned-ipa:
-    name: Unsigned iOS IPA
-    max_build_duration: 60
-    instance_type: mac_mini_m2
 
-    environment:
-      xcode: latest
+name: iOS Build Check
 
-    scripts:
-      - name: Archive and package unsigned IPA
-        script: |
-          set -e
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-          PROJECT=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
-          WORKSPACE=$(find . -maxdepth 2 -name "*.xcworkspace" | head -n 1)
+jobs:
+  build:
+    runs-on: macos-26
 
-          if [ -n "$WORKSPACE" ]; then
-            CONTAINER=(-workspace "$WORKSPACE")
-          elif [ -n "$PROJECT" ]; then
-            CONTAINER=(-project "$PROJECT")
-          else
-            echo "No Xcode project or workspace found"
-            exit 1
-          fi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          SCHEME=$(xcodebuild "${CONTAINER[@]}" -list -json | \
-            python3 -c "import sys,json; print(json.load(sys.stdin)['project']['schemes'][0])")
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
 
+      - name: Build (no signing)
+        run: |
           xcodebuild \
-            "${CONTAINER[@]}" \
-            -scheme "$SCHEME" \
+            -project Breathe.xcodeproj \
+            -scheme Breathe \
             -configuration Release \
-            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath build/App.xcarchive \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            archive
+            build
 
-          APP=$(find build/App.xcarchive/Products/Applications -maxdepth 1 -name "*.app" -type d | head -n 1)
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p ipa/Payload
+          cp -R build/Build/Products/Release-iphoneos/BreatheOSS.app ipa/Payload/
+          cd ipa
+          zip -qr ../BreatheOSS-unsigned.ipa Payload
 
-          if [ -z "$APP" ]; then
-            echo "No compiled .app found"
-            exit 1
-          fi
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: BreatheOSS-unsigned
+          path: BreatheOSS-unsigned.ipa
+          retention-days: 7
 
-          mkdir -p build/Payload
-          cp -R "$APP" build/Payload/
-
-          cd build
-          zip -r Unsigned.ipa Payload
-          cd ..
-
-    artifacts:
-      - build/Unsigned.ipa
-      - build/App.xcarchive

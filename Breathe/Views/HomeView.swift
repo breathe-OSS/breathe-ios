@@ -920,6 +920,38 @@ struct HomeView: View {
     private func aqiColor(_ value: Int) -> Color {
         AqiPalette.color(value, isUsAqi: viewModel.isUsAqi)
     }
+    private func isModerateAqi(_ value: Int) -> Bool {
+        if viewModel.isUsAqi {
+            return (51...100).contains(value)
+        }
+        return (101...200).contains(value)
+    }
+
+    private func aqiDisplayTextColor(_ value: Int) -> Color {
+        if colorScheme == .light && isModerateAqi(value) {
+            return Color(red: 210.0/255.0, green: 153.0/255.0, blue: 0.0) // Darker yellow/amber
+        }
+        return aqiColor(value)
+    }
+
+    private func aqiBadgeTextColor(_ value: Int) -> Color {
+        if viewModel.isUsAqi {
+            return value < 101 ? .black : .white
+        } else {
+            return value < 201 ? .black : .white
+        }
+    }
+    
+    private func aqiLabel(_ value: Int) -> String {
+        switch value {
+        case ..<51:  return "Good"
+        case ..<101: return "Moderate"
+        case ..<151: return "Unhealthy for Sensitive Groups"
+        case ..<201: return "Unhealthy"
+        case ..<301: return "Very Unhealthy"
+        default:     return "Hazardous"
+        }
+    }
 }
 
 struct PollutantLabel: View {

@@ -566,109 +566,104 @@ struct HomeView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
             : AnyLayout(HStackLayout())
 
-        Button {
-            // Intentionally empty: the card responds to touch but does nothing.
-        } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(label)
-                        .font(.system(.title3))
-                        .fontWeight(.bold)
-                        .foregroundStyle(aqiTextColor)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label)
+                    .font(.system(.title3))
+                    .fontWeight(.bold)
+                    .foregroundStyle(.secondary)
 
-                    Spacer()
+                Spacer()
 
-                    Text(response.showingRaw ? "Raw \(standard)" : standard)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .foregroundStyle(
-                            AqiPalette.onColor(
-                                aqi, isUsAqi: viewModel.isUsAqi
-                            )
-                        )
-                        .background(
-                            Capsule()
-                                .fill(tint)
-                        )
-                }
-
-                rowLayout {
-                    Text("\(aqi)")
-                        .font(.system(size: heroNumberSize, weight: .heavy, design: .monospaced))
-                        .monospacedDigit()
-                        .contentTransition(.numericText(value: Double(aqi)))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .foregroundStyle(aqiTextColor)
-
-                    Spacer()
-
-                    if let pollutant = viewModel.displayPollutant {
-                        VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
-                            Text("Primary")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            PollutantLabel(raw: pollutant, style: .title, weight: .bold)
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                }
-
-                AqiGauge(aqi: aqi, isUsAqi: viewModel.isUsAqi)
-                    .padding(.vertical, 2)
-                    .onTapGesture {
-                        showScaleSheet = true
-                    }
-
-                Divider()
-                    .background(aqiColor(aqi).opacity(0.3))
+                Text(response.showingRaw ? "Raw \(standard)" : standard)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 4)
+                    .foregroundStyle(
+                        AqiPalette.onColor(
+                            aqi, isUsAqi: viewModel.isUsAqi
+                        )
+                    )
+                    .background(
+                        Capsule()
+                            .fill(tint)
+                    )
+            }
 
-                footerLayout {
-                    if let h = viewModel.display1hTrend {
-                        trendItem(label: "1h", value: h)
-                    }
+            rowLayout {
+                Text("\(aqi)")
+                    .font(.system(size: heroNumberSize, weight: .heavy, design: .monospaced))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: Double(aqi)))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .foregroundStyle(aqiTextColor)
 
-                    Spacer()
+                Spacer()
 
-                    if let ts = viewModel.formattedLastUpdated {
-                        Label(ts, systemImage: "clock")
-                            .font(.subheadline)
+                if let pollutant = viewModel.displayPollutant {
+                    VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
+                        Text("Primary")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        PollutantLabel(raw: pollutant, style: .title, weight: .bold)
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
 
-                if let warning = response.warning, !warning.isEmpty {
-                    Label {
-                        Text(warning)
-                            .foregroundStyle(.primary)
-                    } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                    }
-                    .font(.footnote)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        Color(.tertiarySystemFill),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    )
+            AqiGauge(aqi: aqi, isUsAqi: viewModel.isUsAqi)
+                .padding(.vertical, 0)
+                .onTapGesture {
+                    showScaleSheet = true
+                }
+
+            Divider()
+                .background(aqiColor(aqi).opacity(0.3))
+                .padding(.vertical, 0)
+
+            footerLayout {
+                if let h = viewModel.display1hTrend {
+                    trendItem(label: "1h", value: h)
+                }
+
+                Spacer()
+
+                if let ts = viewModel.formattedLastUpdated {
+                    Label(ts, systemImage: "clock")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
-            .modifier(AqiGlassBackground(tint: tint, isDark: colorScheme == .dark))
-            .animation(reduceMotion ? .none : .snappy, value: aqi)
-            .offset(x: heroDrag)
-            .simultaneousGesture(heroSwipe)
-            .accessibilityAction(named: "Next pinned location") {
-                stepZone(by: 1)
+
+            if let warning = response.warning, !warning.isEmpty {
+                Label {
+                    Text(warning)
+                        .foregroundStyle(.primary)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+                .font(.footnote)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    Color(.tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
             }
-            .accessibilityAction(named: "Previous pinned location") {
-                stepZone(by: -1)
-            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
+        .modifier(AqiGlassBackground(tint: tint, isDark: colorScheme == .dark))
+        .offset(x: heroDrag)
+        .simultaneousGesture(heroSwipe)
+        .accessibilityAction(named: "Next pinned location") {
+            stepZone(by: 1)
+        }
+        .accessibilityAction(named: "Previous pinned location") {
+            stepZone(by: -1)
         }
     }
 

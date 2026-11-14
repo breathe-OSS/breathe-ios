@@ -108,7 +108,6 @@ struct AqiScaleSheet: View {
 
                         HStack(alignment: .top, spacing: 12) {
                             Capsule()
-                                .fill(band.color)
                                 .frame(width: 6)
                                 .frame(minHeight: 44)
 

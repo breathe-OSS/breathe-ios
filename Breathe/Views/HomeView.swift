@@ -458,21 +458,20 @@ struct HomeView: View {
                 GridRow {
                     aqiCard(aqi: aqi, response: response, fillsHeight: true)
 
-                    List {
-                        aqiCard(aqi: aqi, response: response)
-                            ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
-                            if let weather = response.weather,
-                               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                WeatherContextCard(weather: weather)
-                            }
-                            cigarettesCard(cigarettes: cigarettes)
-                            concentrationsSection(concentrations: response.concentrations)
-                            nodesSection(response: response)
-                            historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
-                            }
+                    VStack(spacing: 16) {
+                        ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
+                            .card()
+
+                        if let weather = response.weather,
+                           !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            WeatherContextCard(weather: weather)
+                                .card()
                         }
+
+                        cigarettesCard(cigarettes: cigarettes)
+                            .card()
                     }
-                    .listStyle(.insetGrouped)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
 
                 GridRow {
@@ -497,21 +496,21 @@ struct HomeView: View {
                 }
             }
         } else {
-            List {
-                aqiCard(aqi: aqi, response: response)
-                    ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
-                    if let weather = response.weather,
-                       !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        WeatherContextCard(weather: weather)
-                    }
-                    cigarettesCard(cigarettes: cigarettes)
-                    concentrationsSection(concentrations: response.concentrations)
-                    nodesSection(response: response)
-                    historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
-                    }
-                }
+            aqiCard(aqi: aqi, response: response)
+            ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
+                .card()
+            if let weather = response.weather,
+               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                WeatherContextCard(weather: weather)
+                    .card()
             }
-            .listStyle(.insetGrouped)
+            cigarettesCard(cigarettes: cigarettes)
+                .card()
+            concentrationsSection(concentrations: response.concentrations)
+            nodesSection(response: response)
+            historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
+        }
+    }
 
     @ViewBuilder
     private func sourceRow(response: AqiResponse) -> some View {

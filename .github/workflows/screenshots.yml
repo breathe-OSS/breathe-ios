@@ -2,6 +2,7 @@ name: Simulator Screenshots
 
 on:
   push:
+    branches: [main]
     paths:
       - 'Breathe/**'
       - 'Breathe.xcodeproj/**'

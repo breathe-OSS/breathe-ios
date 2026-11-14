@@ -107,10 +107,17 @@ struct AqiScaleSheet: View {
                         let isCurrent = band.contains(aqi)
 
                         HStack(alignment: .top, spacing: 12) {
-                            Capsule()
-                                .frame(width: 6)
-                                .frame(minHeight: 44)
-
+                            Group {
+                                if #available(iOS 26, macOS 26, *) {
+                                    Capsule()
+                                        .glassEffect(.regular.tint(band.color))
+                                } else {
+                                    Capsule()
+                                        .fill(band.color)
+                                }
+                            }
+                            .frame(width: 6)
+                            .frame(minHeight: 44)
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(band.label)

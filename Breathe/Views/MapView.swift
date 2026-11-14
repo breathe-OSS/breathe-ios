@@ -757,7 +757,18 @@ struct MapBubbleView: View {
             if bubble.isModelled {
                 Circle()
                     .fill(Color(.systemBackground))
-                    .overlay(Circle().fill(color.opacity(colorScheme == .dark ? 0.3 : 0.2)))
+                    .overlay(
+                        Circle().fill(
+                            LinearGradient(
+                                colors: [
+                                    color.opacity(colorScheme == .dark ? 0.4 : 0.25),
+                                    color.opacity(colorScheme == .dark ? 0.2 : 0.12)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    )
                     .overlay(Circle().strokeBorder(color, lineWidth: 3))
                     .overlay(
                         Text("\(aqi)")
@@ -766,7 +777,16 @@ struct MapBubbleView: View {
                     )
             } else {
                 Circle()
-                    .fill(color)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                color.shifted(brightness: 0.12, saturation: 0.7),
+                                color.shifted(brightness: -0.18)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5))
                     .overlay(
                         Text("\(aqi)")
@@ -776,11 +796,23 @@ struct MapBubbleView: View {
             }
         } else if bubble.isLoading {
             Circle()
-                .fill(Color(.systemGray4))
+                .fill(
+                    LinearGradient(
+                        colors: [Color(.systemGray5), Color(.systemGray4)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(ProgressView().scaleEffect(0.6))
         } else {
             Circle()
-                .fill(Color(.systemGray))
+                .fill(
+                    LinearGradient(
+                        colors: [Color(.systemGray2), Color(.systemGray)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5))
                 .overlay(
                     Image(systemName: "wifi.slash")
@@ -806,5 +838,29 @@ struct MapBubbleView: View {
             parts.append("\(bubble.count) places, tap to zoom in")
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+private extension Color {
+    // shifts HSB brightness and saturation while keeping the hue, so the
+    // darker stops are shades of the AQI color rather than mixes with black
+    func shifted(brightness delta: CGFloat, saturation factor: CGFloat = 1) -> Color {
+#if canImport(UIKit)
+        var hue: CGFloat = 0
+        var sat: CGFloat = 0
+        var bri: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard UIColor(self).getHue(&hue, saturation: &sat, brightness: &bri, alpha: &alpha) else {
+            return self
+        }
+        return Color(
+            hue: Double(hue),
+            saturation: Double(min(max(sat * factor, 0), 1)),
+            brightness: Double(min(max(bri + delta, 0), 1)),
+            opacity: Double(alpha)
+        )
+#else
+        return self
+#endif
     }
 }

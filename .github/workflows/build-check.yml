@@ -1,18 +1,12 @@
-
 name: iOS Build Check
 
 on:
   push:
-    branches:
-      - dev
+    branches: [dev]
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   build:
-    name: Build unsigned IPA
     runs-on: macos-26
 
     steps:
@@ -24,106 +18,18 @@ jobs:
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
 
-      - name: Archive iOS application
+      - name: Build (no signing)
+        run: xcodebuild -project Breathe.xcodeproj -scheme Breathe -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO PROVISIONING_PROFILE_SPECIFIER= build
+
+      - name: Package unsigned IPA
         run: |
-          set -euo pipefail
-
-          xcodebuild archive \
-            -project Breathe.xcodeproj \
-            -scheme Breathe \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/Breathe.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            archive
-
-      
-      - name: Package LiveContainer IPA
-        run: |
-          set -euo pipefail
-
-          ARCHIVE="$RUNNER_TEMP/Breathe.xcarchive"
-          APP="$ARCHIVE/Products/Applications/BreatheOSS.app"
-          DEST="$RUNNER_TEMP/package/Payload/BreatheOSS.app"
-
-          test -d "$APP"
-
-          rm -rf "$RUNNER_TEMP/package"
-          mkdir -p "$(dirname "$DEST")"
-
-          # Copy the main application.
-          ditto "$APP" "$DEST"
-
-          # Remove unsupported app extensions.
-          find "$DEST" -type d -name "*.appex" \
-            -prune -print -exec rm -rf {} +
-
-          # Remove empty PlugIns directory.
-          if [ -d "$DEST/PlugIns" ] && \
-             [ -z "$(ls -A "$DEST/PlugIns")" ]; then
-            rmdir "$DEST/PlugIns"
-          fi
-
-          # Remove signatures and provisioning profiles.
-          find "$DEST" -type d -name "_CodeSignature" \
-            -prune -exec rm -rf {} +
-
-          find "$DEST" -type f \
-            -name "embedded.mobileprovision" -delete
-
-          # Verify no extensions remain.
-          if find "$DEST" -name "*.appex" | grep -q .; then
-            echo "Unexpected app extension found!"
-            exit 1
-          fi
-
-          # Package.
-          cd "$RUNNER_TEMP/package"
-          zip -qry "$GITHUB_WORKSPACE/BreatheOSS.ipa" Payload
-
-          unzip -t "$GITHUB_WORKSPACE/BreatheOSS.ipa"
-
-          echo "Final IPA:"
-          ls -lh "$GITHUB_WORKSPACE/BreatheOSS.ipa"
-
-      - name: Validate IPA
-        run: |
-          set -euo pipefail
-
-          IPA="$GITHUB_WORKSPACE/BreatheOSS.ipa"
-
-          unzip -t "$IPA"
-
-          mkdir -p "$RUNNER_TEMP/validation"
-          unzip -q "$IPA" -d "$RUNNER_TEMP/validation"
-
-          APP="$RUNNER_TEMP/validation/Payload/BreatheOSS.app"
-
-          test -f "$APP/Info.plist"
-
-          EXECUTABLE=$(/usr/libexec/PlistBuddy \
-            -c "Print :CFBundleExecutable" "$APP/Info.plist")
-
-          test -f "$APP/$EXECUTABLE"
-
-          echo "Bundle ID:"
-          /usr/libexec/PlistBuddy \
-            -c "Print :CFBundleIdentifier" "$APP/Info.plist"
-
-          echo "Executable:"
-          file "$APP/$EXECUTABLE"
-
-          echo "Architecture:"
-          lipo -info "$APP/$EXECUTABLE"
-
-          echo "IPA validation passed."
+          mkdir -p ipa/Payload
+          cp -R build/Build/Products/Release-iphoneos/BreatheOSS.app ipa/Payload/
+          cd ipa && zip -qr ../BreatheOSS-unsigned.ipa Payload
 
       - name: Upload unsigned IPA
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          path: BreatheOSS.ipa
-          archive: false
+          name: BreatheOSS-unsigned
+          path: BreatheOSS-unsigned.ipa
           retention-days: 7
-

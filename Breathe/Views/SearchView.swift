@@ -140,45 +140,45 @@ struct SearchView: View {
 
     private func placeRow(_ place: Zone, title: String, subtitle: String) -> some View {
         let isPinned = viewModel.pinnedZoneIds.contains(place.id)
-        return Button {
-            openZone = place
-        } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.body)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                    HStack(spacing: 4) {
-                        if !place.isEstimate {
-                            Circle()
-                                .fill(isOffline(place) ? Color.gray : Color.green)
-                                .frame(width: 6, height: 6)
+        return HStack(spacing: 12) {
+            Button {
+                openZone = place
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.body)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                        HStack(spacing: 4) {
+                            if !place.isEstimate {
+                                Circle()
+                                    .fill(isOffline(place) ? Color.gray : Color.green)
+                                    .frame(width: 6, height: 6)
+                            }
+                            Text(subtitle)
                         }
-                        Text(subtitle)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-                Spacer()
-                aqiChip(viewModel.displayAqi(for: place.id))
-                if isPinned {
-                    Image(systemName: "pin.fill")
                         .font(.caption)
-                        .foregroundStyle(Color.accentColor)
-                        .accessibilityLabel("Pinned")
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    aqiChip(viewModel.displayAqi(for: place.id))
                 }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            .buttonStyle(.plain)
+
             Button {
                 viewModel.togglePin(for: place)
             } label: {
-                Label(isPinned ? "Unpin" : "Pin", systemImage: isPinned ? "pin.slash" : "pin")
+                Image(systemName: isPinned ? "pin.fill" : "pin")
+                    .font(.title3)
+                    .foregroundStyle(isPinned ? Color.accentColor : Color.gray)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
             }
-            .tint(isPinned ? .gray : .accentColor)
+            .buttonStyle(.plain)
+            .accessibilityLabel(isPinned ? "Unpin" : "Pin")
         }
         .contextMenu {
             Button {

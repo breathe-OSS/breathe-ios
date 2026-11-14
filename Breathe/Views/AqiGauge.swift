@@ -41,7 +41,7 @@ struct AqiGauge: View {
         let band = bands[index]
         let fraction = min(max(Double(aqi - band.lower) / Double(max(band.upper - band.lower, 1)), 0), 1)
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             GeometryReader { geo in
                 let segment = (geo.size.width - gap * CGFloat(bands.count - 1)) / CGFloat(bands.count)
                 let markerX = CGFloat(index) * (segment + gap) + segment * CGFloat(fraction)
@@ -50,14 +50,14 @@ struct AqiGauge: View {
                     HStack(spacing: gap) {
                         ForEach(Array(bands.enumerated()), id: \.element.id) { offset, entry in
                             Capsule()
-                                .fill(entry.color)
+                                .fill(offset > index ? entry.color.opacity(0.35) : entry.color)
                                 .frame(width: segment, height: offset == index ? 10 : 6)
                         }
                     }
                     .frame(height: 22)
 
                     Capsule()
-                        .fill(Color.primary)
+                        .fill(Color.white)
                         .frame(width: 4, height: 22)
                         .offset(x: min(max(markerX - 2, 0), geo.size.width - 4))
                         .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75), value: markerX)

@@ -50,7 +50,7 @@ struct AqiGauge: View {
                     HStack(spacing: gap) {
                         ForEach(Array(bands.enumerated()), id: \.element.id) { offset, entry in
                             Capsule()
-                                .fill(entry.color.opacity(offset == index ? 1 : (offset < index ? 0.55 : 0.22)))
+                                .fill(entry.color)
                                 .frame(width: segment, height: offset == index ? 10 : 6)
                         }
                     }
@@ -59,10 +59,6 @@ struct AqiGauge: View {
                     Capsule()
                         .fill(Color.primary)
                         .frame(width: 4, height: 22)
-                        .overlay(
-                            Capsule()
-                                .stroke(Color(.secondarySystemGroupedBackground), lineWidth: 2)
-                        )
                         .offset(x: min(max(markerX - 2, 0), geo.size.width - 4))
                         .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75), value: markerX)
                 }
@@ -107,18 +103,12 @@ struct AqiScaleSheet: View {
                         let isCurrent = band.contains(aqi)
 
                         HStack(alignment: .top, spacing: 12) {
-                            Group {
-                                if #available(iOS 26, macOS 26, *) {
-                                    Capsule()
-                                        .glassEffect(.regular.tint(band.color))
-                                } else {
-                                    Capsule()
-                                        .fill(band.color)
-                                }
-                            }
-                            .frame(width: 6)
-                            .frame(minHeight: 44)
-                            VStack(alignment: .leading, spacing: 4) {
+                            Capsule()
+                                .fill(band.color)
+                                .frame(width: 6)
+                                .frame(minHeight: 44)
+
+                            VStack(alignment: .leading, spacing: 2) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(band.label)
                                         .font(.headline)

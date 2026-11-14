@@ -566,12 +566,12 @@ struct HomeView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
             : AnyLayout(HStackLayout())
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(label)
                     .font(.system(.title3))
                     .fontWeight(.bold)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(aqiTextColor)
 
                 Spacer()
 
@@ -608,7 +608,7 @@ struct HomeView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         PollutantLabel(raw: pollutant, style: .title, weight: .bold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -654,7 +654,7 @@ struct HomeView: View {
                 )
             }
         }
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
         .modifier(AqiGlassBackground(tint: tint, isDark: colorScheme == .dark))
         .offset(x: heroDrag)

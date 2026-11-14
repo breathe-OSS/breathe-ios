@@ -39,38 +39,53 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             archive
 
-      - name: Package unsigned IPA
+      
+      - name: Package LiveContainer IPA
         run: |
           set -euo pipefail
 
           ARCHIVE="$RUNNER_TEMP/Breathe.xcarchive"
           APP="$ARCHIVE/Products/Applications/BreatheOSS.app"
+          DEST="$RUNNER_TEMP/package/Payload/BreatheOSS.app"
 
-          if [ ! -d "$APP" ]; then
-            echo "Application not found in archive"
-            find "$ARCHIVE/Products" -maxdepth 3 -print
+          test -d "$APP"
+
+          rm -rf "$RUNNER_TEMP/package"
+          mkdir -p "$(dirname "$DEST")"
+
+          # Copy the main application.
+          ditto "$APP" "$DEST"
+
+          # Remove unsupported app extensions.
+          find "$DEST" -type d -name "*.appex" \
+            -prune -print -exec rm -rf {} +
+
+          # Remove empty PlugIns directory.
+          if [ -d "$DEST/PlugIns" ] && \
+             [ -z "$(ls -A "$DEST/PlugIns")" ]; then
+            rmdir "$DEST/PlugIns"
+          fi
+
+          # Remove signatures and provisioning profiles.
+          find "$DEST" -type d -name "_CodeSignature" \
+            -prune -exec rm -rf {} +
+
+          find "$DEST" -type f \
+            -name "embedded.mobileprovision" -delete
+
+          # Verify no extensions remain.
+          if find "$DEST" -name "*.appex" | grep -q .; then
+            echo "Unexpected app extension found!"
             exit 1
           fi
 
-          rm -rf "$RUNNER_TEMP/ipa"
-          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          # Package.
+          cd "$RUNNER_TEMP/package"
+          zip -qry "$GITHUB_WORKSPACE/BreatheOSS.ipa" Payload
 
-          # Remove existing signatures and provisioning profiles.
-          find "$APP" -name "_CodeSignature" \
-            -type d -prune -exec rm -rf {} +
+          unzip -t "$GITHUB_WORKSPACE/BreatheOSS.ipa"
 
-          find "$APP" -name "embedded.mobileprovision" \
-            -type f -delete
-
-          # Construct IPA.
-          ditto "$APP" "$RUNNER_TEMP/ipa/Payload/BreatheOSS.app"
-
-          cd "$RUNNER_TEMP/ipa"
-
-          zip -r -q "$GITHUB_WORKSPACE/BreatheOSS.ipa" Payload \
-            -x "._*" -x ".DS_Store" -x "__MACOSX/*"
-
-          echo "IPA created:"
+          echo "Final IPA:"
           ls -lh "$GITHUB_WORKSPACE/BreatheOSS.ipa"
 
       - name: Validate IPA

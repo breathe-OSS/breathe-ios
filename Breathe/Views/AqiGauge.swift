@@ -41,7 +41,7 @@ struct AqiGauge: View {
         let band = bands[index]
         let fraction = min(max(Double(aqi - band.lower) / Double(max(band.upper - band.lower, 1)), 0), 1)
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             GeometryReader { geo in
                 let segment = (geo.size.width - gap * CGFloat(bands.count - 1)) / CGFloat(bands.count)
                 let markerX = CGFloat(index) * (segment + gap) + segment * CGFloat(fraction)
@@ -50,19 +50,15 @@ struct AqiGauge: View {
                     HStack(spacing: gap) {
                         ForEach(Array(bands.enumerated()), id: \.element.id) { offset, entry in
                             Capsule()
-                                .fill(entry.color.opacity(offset == index ? 1 : (offset < index ? 0.55 : 0.22)))
+                                .fill(offset > index ? entry.color.opacity(0.35) : entry.color)
                                 .frame(width: segment, height: offset == index ? 10 : 6)
                         }
                     }
                     .frame(height: 22)
 
                     Capsule()
-                        .fill(Color.primary)
+                        .fill(Color.white)
                         .frame(width: 4, height: 22)
-                        .overlay(
-                            Capsule()
-                                .stroke(Color(.secondarySystemGroupedBackground), lineWidth: 2)
-                        )
                         .offset(x: min(max(markerX - 2, 0), geo.size.width - 4))
                         .animation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.75), value: markerX)
                 }
@@ -112,7 +108,7 @@ struct AqiScaleSheet: View {
                                 .frame(width: 6)
                                 .frame(minHeight: 44)
 
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(band.label)
                                         .font(.headline)

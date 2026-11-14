@@ -390,6 +390,7 @@ struct ExtendedHistoryView: View {
         let base = key.hasSuffix("_raw") ? String(key.dropLast(4)) : key
         switch base {
         case "us_aqi": return AqiPalette.color(Int(value.rounded()), isUsAqi: true)
+        case "naqi": return AqiPalette.color(Int(value.rounded()), isUsAqi: false)
         case "pm2_5": return AqiPalette.color(bandSample(value, bands: pm25Bands), isUsAqi: true)
         case "pm10": return AqiPalette.color(bandSample(value, bands: pm10Bands), isUsAqi: true)
         default: return .primary
@@ -410,11 +411,13 @@ struct ExtendedHistoryView: View {
         let points = filteredData
         let unit = unitSuffix(state.metric.unit)
         let step = intervalSeconds(state.interval)
-        let aqiKey = state.mode == .raw ? "us_aqi_raw" : "us_aqi"
+        let usScale = state.metric.isUsScale
+        let aqiBase = usScale ? "us_aqi" : "naqi"
+        let aqiKey = state.mode == .raw ? "\(aqiBase)_raw" : aqiBase
         var tally = Array(repeating: 0, count: 6)
         for point in points {
             if let v = point.value(aqiKey) {
-                tally[aqiBandIndex(Int(v.rounded()), isUsAqi: true)] += 1
+                tally[aqiBandIndex(Int(v.rounded()), isUsAqi: usScale)] += 1
             }
         }
         let tallied = tally.reduce(0, +)
@@ -460,7 +463,7 @@ struct ExtendedHistoryView: View {
 
             if tallied > 0 {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(state.mode == .raw ? "Time in each US AQI category, raw" : "Time in each US AQI category")
+                    Text(state.mode == .raw ? "Time in each \(state.metric.indexName) category, raw" : "Time in each \(state.metric.indexName) category")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     GeometryReader { geo in
@@ -468,7 +471,7 @@ struct ExtendedHistoryView: View {
                             ForEach(0..<6, id: \.self) { index in
                                 if tally[index] > 0 {
                                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                        .fill(AqiPalette.color(usCategorySamples[index], isUsAqi: true))
+                                        .fill(AqiPalette.color(categorySample(index, isUsAqi: usScale), isUsAqi: usScale))
                                         .frame(width: max(2, (geo.size.width - 10) * CGFloat(tally[index]) / CGFloat(tallied)))
                                 }
                             }
@@ -477,8 +480,8 @@ struct ExtendedHistoryView: View {
                     .frame(height: 12)
                     FlowLegend(items: (0..<6).filter { tally[$0] > 0 }.map { index in
                         (
-                            AqiPalette.color(usCategorySamples[index], isUsAqi: true),
-                            "\(AqiPalette.label(usCategorySamples[index], isUsAqi: true)) \(Int((Double(tally[index]) * 100 / Double(tallied)).rounded()))%"
+                            AqiPalette.color(categorySample(index, isUsAqi: usScale), isUsAqi: usScale),
+                            "\(AqiPalette.label(categorySample(index, isUsAqi: usScale), isUsAqi: usScale)) \(Int((Double(tally[index]) * 100 / Double(tallied)).rounded()))%"
                         )
                     })
                 }
@@ -552,7 +555,7 @@ struct ExtendedHistoryView: View {
                             yStart: .value("Low", low),
                             yEnd: .value("High", high)
                         )
-                        .foregroundStyle(AqiPalette.color(usCategorySamples[index], isUsAqi: true).opacity(0.09))
+                        .foregroundStyle(AqiPalette.color(categorySample(index, isUsAqi: state.metric.isUsScale), isUsAqi: state.metric.isUsScale).opacity(0.09))
                     }
                 }
             }
@@ -610,8 +613,8 @@ struct ExtendedHistoryView: View {
                     return nil
                 }
                 var part = "\(line.label) \(formatValue(nearest.value, decimals: state.metric.decimals))\(unitSuffix(state.metric.unit))"
-                if state.metric == .aqi && !hourAxis {
-                    part += " (\(AqiPalette.label(Int(nearest.value.rounded()), isUsAqi: true)))"
+                if state.metric.isIndex && !hourAxis {
+                    part += " (\(AqiPalette.label(Int(nearest.value.rounded()), isUsAqi: state.metric.isUsScale)))"
                 }
                 return part
             }
@@ -646,7 +649,7 @@ struct ExtendedHistoryView: View {
             )
         }
         let step = bucket >= 86400 ? "daily averages" : (bucket >= 4 * 3600 ? "4 hour averages" : "hourly")
-        let shaded = state.metric.bands == nil ? "" : ", shaded by US AQI category"
+        let shaded = state.metric.bands == nil ? "" : ", shaded by \(state.metric.indexName) category"
 
         return VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {

@@ -295,11 +295,13 @@ struct HistoricalDataPoint: Codable, Identifiable {
     var temp: Double?
     var humidity: Double?
     var usAqi: Double?
+    var naqi: Double?
     var pm25Raw: Double?
     var pm10Raw: Double?
     var tempRaw: Double?
     var humidityRaw: Double?
     var usAqiRaw: Double?
+    var naqiRaw: Double?
 
     enum CodingKeys: String, CodingKey {
         case zoneId = "zone_id"
@@ -307,11 +309,13 @@ struct HistoricalDataPoint: Codable, Identifiable {
         case pm25 = "pm2_5"
         case pm10 = "pm10"
         case usAqi = "us_aqi"
+        case naqi
         case pm25Raw = "pm2_5_raw"
         case pm10Raw = "pm10_raw"
         case tempRaw = "temp_raw"
         case humidityRaw = "humidity_raw"
         case usAqiRaw = "us_aqi_raw"
+        case naqiRaw = "naqi_raw"
     }
 
     func value(_ key: String) -> Double? {
@@ -321,11 +325,13 @@ struct HistoricalDataPoint: Codable, Identifiable {
         case "temp": return temp
         case "humidity": return humidity
         case "us_aqi": return usAqi
+        case "naqi": return naqi
         case "pm2_5_raw": return pm25Raw
         case "pm10_raw": return pm10Raw
         case "temp_raw": return tempRaw
         case "humidity_raw": return humidityRaw
         case "us_aqi_raw": return usAqiRaw
+        case "naqi_raw": return naqiRaw
         default: return nil
         }
     }
@@ -451,6 +457,7 @@ struct HistoryPeriod: Equatable {
 
 enum HistoryMetric: String, CaseIterable, Identifiable {
     case aqi = "US AQI"
+    case naqi = "NAQI"
     case pm25 = "PM2.5"
     case pm10 = "PM10"
     case pm = "PM2.5 + PM10"
@@ -462,6 +469,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
     var unit: String {
         switch self {
         case .aqi: return "US AQI"
+        case .naqi: return "NAQI"
         case .pm25, .pm10, .pm: return "µg/m³"
         case .temp: return "°C"
         case .humidity: return "%"
@@ -471,6 +479,7 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
     var keys: [String] {
         switch self {
         case .aqi: return ["us_aqi"]
+        case .naqi: return ["naqi"]
         case .pm25: return ["pm2_5"]
         case .pm10: return ["pm10"]
         case .pm: return ["pm2_5", "pm10"]
@@ -488,9 +497,21 @@ enum HistoryMetric: String, CaseIterable, Identifiable {
 
     var decimals: Int {
         switch self {
-        case .aqi, .humidity: return 0
+        case .aqi, .naqi, .humidity: return 0
         default: return 1
         }
+    }
+
+    var isIndex: Bool {
+        self == .aqi || self == .naqi
+    }
+
+    var isUsScale: Bool {
+        self != .naqi
+    }
+
+    var indexName: String {
+        isUsScale ? "US AQI" : "NAQI"
     }
 }
 

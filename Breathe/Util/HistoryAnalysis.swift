@@ -27,11 +27,20 @@
 import Foundation
 
 let compareMinOverlap = 24
-let historyMetrics = "pm2.5,pm10,temp,humidity,us_aqi,pm2.5_raw,pm10_raw,temp_raw,humidity_raw,us_aqi_raw"
+let historyMetrics = "pm2.5,pm10,temp,humidity,us_aqi,naqi,pm2.5_raw,pm10_raw,temp_raw,humidity_raw,us_aqi_raw,naqi_raw"
 let usAqiBands: [Double] = [0, 50, 100, 150, 200, 300, 500]
+let naqiBands: [Double] = [0, 50, 100, 200, 300, 400, 500]
 let pm25Bands: [Double] = [0, 9, 35.4, 55.4, 125.4, 225.4, 325.4]
 let pm10Bands: [Double] = [0, 54, 154, 254, 354, 424, 604]
 let usCategorySamples = [25, 75, 125, 175, 250, 400]
+let indiaCategorySamples = [25, 75, 150, 250, 350, 450]
+
+func categorySample(_ index: Int, isUsAqi: Bool) -> Int {
+    if isUsAqi {
+        return usCategorySamples[index]
+    }
+    return indiaCategorySamples[index]
+}
 
 enum SeriesHue {
     case primary
@@ -84,6 +93,7 @@ extension HistoryMetric {
     var bands: [Double]? {
         switch self {
         case .aqi: return usAqiBands
+        case .naqi: return naqiBands
         case .pm25: return pm25Bands
         case .pm10: return pm10Bands
         default: return nil
@@ -311,7 +321,7 @@ func formatValue(_ value: Double?, decimals: Int) -> String {
 }
 
 func unitSuffix(_ unit: String) -> String {
-    unit == "US AQI" ? "" : " \(unit)"
+    unit == "US AQI" || unit == "NAQI" ? "" : " \(unit)"
 }
 
 func rawNote(rows: [HistoricalDataPoint], metric: HistoryMetric, interval: String) -> String? {

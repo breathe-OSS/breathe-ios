@@ -10,6 +10,11 @@ on:
       - 'BreatheWidgetExtension.entitlements'
       - '.github/workflows/ios-build.yml'
   workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload this build to TestFlight
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -18,6 +23,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check version bump
+        id: version
+        run: .github/scripts/version-bump.sh "${{ github.event.before }}"
 
       - name: Select Xcode
         run: |
@@ -122,6 +133,9 @@ jobs:
           retention-days: 30
 
       - name: Upload to TestFlight
+        if: >-
+          (github.event_name == 'push' && steps.version.outputs.bumped == 'true') ||
+          (github.event_name == 'workflow_dispatch' && inputs.upload)
         uses: apple-actions/upload-testflight-build@v5
         with:
           app-path: Breathe.ipa

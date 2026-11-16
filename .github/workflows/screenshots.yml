@@ -17,15 +17,41 @@ on:
       - '.github/scripts/shots.sh'
       - '.github/workflows/screenshots.yml'
   workflow_dispatch:
+    inputs:
+      update_readme:
+        description: Refresh the README screenshots from this run
+        type: boolean
+        default: false
 
 concurrency:
   group: screenshots-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      build: ${{ steps.check.outputs.build }}
+      bumped: ${{ steps.check.outputs.bumped }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check version bump
+        id: check
+        run: .github/scripts/version-bump.sh "${{ github.event.before }}"
+
   shots:
+    needs: version
     runs-on: xcode-27
     timeout-minutes: 30
+
+    permissions:
+      contents: write
 
     strategy:
       fail-fast: false
@@ -86,3 +112,34 @@ jobs:
           name: screenshots-${{ matrix.device }}-${{ github.run_number }}
           path: shots
           retention-days: 14
+
+      - name: Refresh README screenshots
+        if: >-
+          matrix.device == 'iphone' && github.ref == 'refs/heads/main' &&
+          ((github.event_name == 'push' && needs.version.outputs.bumped == 'true') ||
+          (github.event_name == 'workflow_dispatch' && inputs.update_readme))
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          BUILD: ${{ needs.version.outputs.build }}
+        run: |
+          i=1
+          for name in home-light map-zone-light search-light extended-history-light home-dark map-sensors-dark; do
+            sips -s format jpeg -s formatOptions 85 --resampleWidth 660 "shots/iphone-$name.png" --out "assets/screenshot-$i.jpg"
+            i=$((i + 1))
+          done
+          if git diff --quiet -- assets; then
+            echo "README screenshots unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/screenshot-*.jpg
+          git commit -s -m "breathe-ios: Refresh README screenshots for $VERSION-$BUILD"
+          for _ in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1

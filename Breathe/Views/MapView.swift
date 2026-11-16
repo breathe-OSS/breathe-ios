@@ -108,6 +108,11 @@ struct MapView: View {
                 }
             )
             .ignoresSafeArea()
+            .overlay(alignment: .bottomLeading) {
+                MapLegend()
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
+            }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 frameZonesOnce()
@@ -729,6 +734,40 @@ struct LiveDot: View {
             .frame(width: size, height: size)
             .overlay(Circle().strokeBorder(Color.white, lineWidth: 2))
             .shadow(color: Color.green.opacity(0.6), radius: 3)
+    }
+}
+
+struct MapLegend: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    Circle()
+                        .fill(Color.green.opacity(0.85))
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5))
+                        .frame(width: 18, height: 18)
+                    LiveDot(size: 8)
+                        .offset(x: 2, y: -2)
+                }
+                Text("Sensor zone, live reading")
+            }
+
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.green.opacity(colorScheme == .dark ? 0.3 : 0.18))
+                    .overlay(Circle().strokeBorder(Color.green, lineWidth: 2.5))
+                    .frame(width: 18, height: 18)
+                Text("Estimate zone, no sensor")
+            }
+        }
+        .font(.caption)
+        .fontWeight(.medium)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
 

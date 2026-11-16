@@ -173,6 +173,7 @@ struct LinkRow: View {
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }
+                .foregroundStyle(.primary)
             }
         }
     }

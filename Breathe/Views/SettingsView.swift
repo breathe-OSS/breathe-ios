@@ -103,9 +103,9 @@ struct SettingsView: View {
                         PersonRow(name: "Sidharth \"Siddhi\" Sharma", handle: "sidharthify", role: "Lead Developer", url: "https://github.com/sidharthify")
                         PersonRow(name: "Aaditya Gupta", handle: "FlashWreck", role: "Lead Developer, DevOps", url: "https://github.com/FlashWreck")
                         PersonRow(name: "Veer P.S Sambyal", handle: "Lostless1907", role: "Developer", url: "https://github.com/Lostless1907")
+                        PersonRow(name: "Sannidhya Sharma", handle: "SleeperOfSaturn", role: "Developer, iOS App Co-dev", url: "https://github.com/SleeperOfSaturn")
                         PersonRow(name: "Altair Irfan", handle: nil, role: "Core Team", url: "https://www.linkedin.com/in/altairirfan/")
                         PersonRow(name: "Suvesh Moza", handle: "suveshmoza", role: "Developer", url: "https://github.com/suveshmoza")
-                        PersonRow(name: "Sannidhya Sharma", handle: "SleeperOfSaturn", role: "iOS App Co-lead", url: "https://github.com/SleeperOfSaturn")
                         // contributors:end
                         LinkRow(title: "All Contributors", subtitle: "Everyone who has helped build Breathe", url: "https://about.breatheoss.app/#people")
                             .id("bottom")

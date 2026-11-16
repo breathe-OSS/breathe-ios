@@ -5,9 +5,15 @@ on:
     branches: [main]
     paths:
       - 'Breathe/**'
+      - 'BreatheWidget/**'
       - 'Breathe.xcodeproj/**'
       - '.github/workflows/screenshots.yml'
   pull_request:
+    paths:
+      - 'Breathe/**'
+      - 'BreatheWidget/**'
+      - 'Breathe.xcodeproj/**'
+      - '.github/workflows/screenshots.yml'
   workflow_dispatch:
 
 jobs:

@@ -3,6 +3,12 @@ name: iOS Build Check
 on:
   push:
     branches: [dev]
+    paths:
+      - 'Breathe/**'
+      - 'BreatheWidget/**'
+      - 'Breathe.xcodeproj/**'
+      - 'BreatheWidgetExtension.entitlements'
+      - '.github/workflows/build-check.yml'
   workflow_dispatch:
 
 jobs:

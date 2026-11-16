@@ -99,12 +99,15 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        PersonRow(name: "Sidharth \"Siddhi\" Sharma", handle: "sidharthify", role: "Lead Developer")
-                        PersonRow(name: "Sannidhya Sharma", handle: "sleeperofsaturn", role: "Developer")
-                        PersonRow(name: "Aaditya Gupta", handle: "Flashwreck", role: "Developer")
-                        PersonRow(name: "Aditya Choudhary", handle: "empirea9", role: "Contributor")
-                        PersonRow(name: "Veer P.S Singh", handle: "Lostless1907", role: "Contributor")
-                        PersonRow(name: "Suvesh Moza", handle: "suveshmoza", role: "Contributor")
+                        // contributors:start
+                        PersonRow(name: "Sidharth \"Siddhi\" Sharma", handle: "sidharthify", role: "Lead Developer", url: "https://github.com/sidharthify")
+                        PersonRow(name: "Aaditya Gupta", handle: "FlashWreck", role: "Lead Developer, DevOps", url: "https://github.com/FlashWreck")
+                        PersonRow(name: "Veer P.S Sambyal", handle: "Lostless1907", role: "Developer", url: "https://github.com/Lostless1907")
+                        PersonRow(name: "Altair Irfan", handle: nil, role: "Core Team", url: "https://www.linkedin.com/in/altairirfan/")
+                        PersonRow(name: "Suvesh Moza", handle: "suveshmoza", role: "Developer", url: "https://github.com/suveshmoza")
+                        PersonRow(name: "Sannidhya Sharma", handle: "SleeperOfSaturn", role: "iOS App Co-lead", url: "https://github.com/SleeperOfSaturn")
+                        // contributors:end
+                        LinkRow(title: "All Contributors", subtitle: "Everyone who has helped build Breathe", url: "https://about.breatheoss.app/#people")
                             .id("bottom")
                     } header: {
                         Text("Credits")
@@ -177,11 +180,16 @@ struct LinkRow: View {
 
 struct PersonRow: View {
     let name: String
-    let handle: String
+    let handle: String?
     let role: String
+    let url: String
 
     var body: some View {
-        LinkRow(title: name, subtitle: "\(role), @\(handle)", url: "https://github.com/\(handle)")
+        if let handle {
+            LinkRow(title: name, subtitle: "\(role), @\(handle)", url: url)
+        } else {
+            LinkRow(title: name, subtitle: role, url: url)
+        }
     }
 }
 

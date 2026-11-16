@@ -720,6 +720,18 @@ struct ZoneSheet: View {
     }
 }
 
+struct LiveDot: View {
+    var size: CGFloat = 10
+
+    var body: some View {
+        Circle()
+            .fill(Color.green)
+            .frame(width: size, height: size)
+            .overlay(Circle().strokeBorder(Color.white, lineWidth: 2))
+            .shadow(color: Color.green.opacity(0.6), radius: 3)
+    }
+}
+
 // MARK: - Annotation Marker UI
 struct MapBubbleView: View {
     let bubble: MapBubble
@@ -735,6 +747,11 @@ struct MapBubbleView: View {
                 .frame(width: size, height: size)
                 .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
 
+            if bubble.isLive && bubble.aqi != nil {
+                LiveDot()
+                    .offset(x: 2, y: -2)
+            }
+
             if bubble.count > 1 {
                 Text("\(bubble.count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -743,7 +760,7 @@ struct MapBubbleView: View {
                     .frame(minWidth: 18, minHeight: 18)
                     .background(Capsule().fill(Color(.systemBackground)))
                     .overlay(Capsule().stroke(Color.secondary.opacity(0.3), lineWidth: 0.5))
-                    .offset(x: 8, y: -6)
+                    .offset(x: 8, y: size - 12)
             }
         }
         .accessibilityElement(children: .ignore)

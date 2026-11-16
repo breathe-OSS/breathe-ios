@@ -50,6 +50,8 @@ struct HomeView: View {
     @AppStorage("pinnedOverview") private var pinnedOverview = false
     @State private var isOverviewExpanded = false
     @State private var showPinnedHint = false
+    @State private var pinnedFold = FoldLayout()
+    @State private var dashboardFold = FoldLayout()
     @State private var isWelcomeDeferred = false
     @ScaledMetric(relativeTo: .largeTitle) private var heroNumberSize: CGFloat = 72
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -295,7 +297,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 6)
         } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: pinnedFold.columns(sizeClass == .regular ? 4 : 2, spacing: 12), spacing: 12) {
                 ForEach(viewModel.pinnedZones) { zone in
                     Button {
                         viewModel.selectedZone = zone
@@ -312,6 +314,7 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .readFold($pinnedFold)
             .padding(.bottom, 10)
         }
     }
@@ -454,9 +457,10 @@ struct HomeView: View {
         let advice = healthAdviceFor(aqi, isUsAqi: viewModel.isUsAqi)
 
         if sizeClass == .regular {
-            Grid(alignment: .top, horizontalSpacing: 16, verticalSpacing: 16) {
+            Grid(alignment: .top, horizontalSpacing: dashboardFold.verticalDivision?.width ?? 16, verticalSpacing: 16) {
                 GridRow {
                     aqiCard(aqi: aqi, response: response, fillsHeight: true)
+                        .frame(width: dashboardFold.verticalDivision?.minX)
 
                     contextGroup(aqi: aqi, advice: advice, weather: response.weather, cigarettes: cigarettes)
                         .frame(maxHeight: .infinity, alignment: .top)
@@ -466,6 +470,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         concentrationsSection(concentrations: response.concentrations)
                     }
+                    .frame(width: dashboardFold.verticalDivision?.minX)
                     .frame(maxHeight: .infinity, alignment: .top)
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -483,6 +488,7 @@ struct HomeView: View {
                     .gridCellColumns(2)
                 }
             }
+            .readFold($dashboardFold)
         } else {
             aqiCard(aqi: aqi, response: response)
             contextGroup(aqi: aqi, advice: advice, weather: response.weather, cigarettes: cigarettes)

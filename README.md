@@ -40,6 +40,7 @@
 - **Swipe between pinned places**, with context menus and haptics
 - **Cigarette equivalence**
 - **Home screen widgets**
+- **iPhone Duo**, with bars on the side, Home grids that split at the fold and a map legend that stays clear of the camera
 - **Follows Reduce Motion**
 
 ## Tech Stack
@@ -110,8 +111,10 @@ BreatheWidget/                  # Widget extension
 
 ### CI
 
-- **Simulator Screenshots** builds every push and shoots each screen on iPhone and iPad, light and dark.
-- **iOS Build** uploads `main` to TestFlight.
+Workflows only run when app, widget or project files change, and build with Xcode 27.2.
+
+- **Simulator Screenshots** shoots iPhone, iPad and iPhone Duo in parallel. The Duo leg folds the simulator with [hinge](https://github.com/artemnovichkov/hinge) and covers closed, open, book and laptop poses. When the version or build number changes on `main`, it also refreshes the README screenshots.
+- **iOS Build** archives `main` and uploads it to TestFlight when the version or build number changed.
 - **App Store Submit** sends a build for review with release notes and screenshots.
 
 ## AQI Data Providers

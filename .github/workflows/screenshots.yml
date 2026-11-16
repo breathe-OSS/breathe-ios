@@ -67,6 +67,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
 
+      - name: Boot simulator
+        run: .github/scripts/shots.sh "${{ matrix.device }}" boot
+
       - name: Install hinge
         if: matrix.device == 'duo'
         run: |

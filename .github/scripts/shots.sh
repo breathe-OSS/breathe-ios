@@ -2,7 +2,7 @@
 set -euo pipefail
 
 device=$1
-app_path=$2
+app_path=${2:-}
 out=${3:-shots}
 
 BUNDLE_ID=com.sidharthify.BreatheOSS
@@ -11,7 +11,15 @@ PINNED='["srinagar","kargil_town","jammu_city"]'
 PINNED_HEX=$(printf '%s' "$PINNED" | xxd -p | tr -d '\n')
 HINGE=${HINGE:-hinge}
 
-mkdir -p "$out"
+log() {
+  echo "[$(date +%H:%M:%S)] $*"
+}
+
+limit() {
+  local seconds=$1
+  shift
+  perl -e 'alarm shift @ARGV; exec @ARGV or die "exec failed"' "$seconds" "$@"
+}
 
 pick_device() {
   local pattern udid
@@ -42,18 +50,19 @@ seed_prefs() {
 
 capture() {
   if [ "$device" = duo ]; then
-    "$HINGE" -d "$UDID" screenshot "$1"
+    limit 60 "$HINGE" -d "$UDID" screenshot "$1"
   else
-    xcrun simctl io "$UDID" screenshot "$1"
+    limit 60 xcrun simctl io "$UDID" screenshot "$1" > /dev/null
   fi
 }
 
 shoot() {
   local name=$1 tab=$2
   shift 2
-  xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+  log "$name"
+  limit 60 xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
   rm -f "$MARKER"
-  xcrun simctl launch "$UDID" "$BUNDLE_ID" \
+  limit 120 xcrun simctl launch "$UDID" "$BUNDLE_ID" \
     -initialTab "$tab" \
     -has_onboarded YES \
     -pinned_zones "<$PINNED_HEX>" \
@@ -65,6 +74,8 @@ shoot() {
   done
   if [ ! -f "$MARKER" ]; then
     echo "::warning::$name never signalled ready"
+  else
+    log "$name ready after $((tries / 4)) s"
   fi
   capture "$out/$name.png"
 }
@@ -92,10 +103,11 @@ iphone_set() {
 
 duo_pose() {
   local orientation=$1 angle=$2
-  "$HINGE" -d "$UDID" orient "$orientation"
-  "$HINGE" -d "$UDID" "$angle"
+  log "pose $orientation $angle"
+  limit 120 "$HINGE" -d "$UDID" orient "$orientation"
+  limit 120 "$HINGE" -d "$UDID" "$angle"
   sleep 2.5
-  "$HINGE" -d "$UDID" posture
+  limit 60 "$HINGE" -d "$UDID" posture
 }
 
 duo_set() {
@@ -106,31 +118,46 @@ duo_set() {
   shoot "duo-$pose-settings-$mode" 3
 }
 
-case "$device" in
-  iphone)
-    UDID=$(pick_device "iPhone 18 Pro Max" "iPhone 17 Pro Max" "iPhone")
-    ;;
-  ipad)
-    UDID=$(pick_device "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad")
-    ;;
-  duo)
-    UDID=$(pick_device "iPhone Duo")
-    ;;
-  *)
-    echo "Unknown device $device"
-    exit 1
-    ;;
-esac
+if [ -z "${UDID:-}" ]; then
+  case "$device" in
+    iphone)
+      UDID=$(pick_device "iPhone 18 Pro Max" "iPhone 17 Pro Max" "iPhone")
+      ;;
+    ipad)
+      UDID=$(pick_device "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad")
+      ;;
+    duo)
+      UDID=$(pick_device "iPhone Duo")
+      ;;
+    *)
+      echo "Unknown device $device"
+      exit 1
+      ;;
+  esac
+fi
 
 if [ -z "$UDID" ]; then
   echo "No simulator found for $device"
   exit 1
 fi
 
-xcrun simctl boot "$UDID"
-xcrun simctl bootstatus "$UDID"
-xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
-xcrun simctl install "$UDID" "$app_path"
+if [ "$app_path" = boot ]; then
+  log "booting $UDID in the background"
+  nohup xcrun simctl boot "$UDID" > "${RUNNER_TEMP:-/tmp}/sim-boot.log" 2>&1 &
+  if [ -n "${GITHUB_ENV:-}" ]; then
+    echo "UDID=$UDID" >> "$GITHUB_ENV"
+  fi
+  exit 0
+fi
+
+mkdir -p "$out"
+
+log "waiting for $UDID to boot"
+limit 600 xcrun simctl bootstatus "$UDID" -b
+log "installing"
+limit 300 xcrun simctl install "$UDID" "$app_path"
+log "overriding status bar"
+limit 60 xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || log "status bar override failed"
 seed_prefs
 MARKER="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)/tmp/shot-ready"
 
@@ -173,4 +200,5 @@ case "$device" in
     ;;
 esac
 
+log "done"
 xcrun simctl shutdown "$UDID"

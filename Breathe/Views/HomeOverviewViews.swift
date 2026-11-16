@@ -263,55 +263,76 @@ struct PinnedOverviewCard: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    var body: some View {
-        let color = aqi.map { AqiPalette.color($0, isUsAqi: isUsAqi) } ?? .gray
-        let isLive = zone.provider?.localizedCaseInsensitiveContains("airgradient") == true
+    private var isLive: Bool {
+        !zone.isEstimate
+    }
 
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(zone.name)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .lineLimit(1)
 
+                Spacer(minLength: 0)
+
                 if isLive {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 6, height: 6)
-                        .accessibilityLabel("Live ground sensors")
+                    LiveDot(size: 9)
+                        .accessibilityLabel("Live ground sensor")
                 }
             }
 
-            if let aqi = aqi {
-                Text("\(aqi)")
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.primary)
+            if let district = zone.district, district != zone.name {
+                Text(district)
+                    .font(.caption)
+                    .opacity(0.75)
+                    .lineLimit(1)
+            }
 
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 8, height: 8)
-                    Text(AqiPalette.label(aqi, isUsAqi: isUsAqi))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+            Spacer(minLength: 14)
+
+            if let aqi {
+                Text("\(aqi)")
+                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+
+                Text(AqiPalette.label(aqi, isUsAqi: isUsAqi))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .opacity(0.85)
             } else {
                 ProgressView()
-                    .frame(height: 48)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
             }
         }
+        .foregroundStyle(textColor)
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(color.opacity(colorScheme == .dark ? 0.22 : 0.16))
-                )
-        )
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
+        .background(background, in: shape)
+        .overlay(shape.strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.12 : 0.25), lineWidth: 1))
+        .contentShape(shape)
         .accessibilityElement(children: .combine)
+    }
+
+    private var textColor: Color {
+        guard let aqi else {
+            return .primary
+        }
+        return AqiPalette.onColor(aqi, isUsAqi: isUsAqi)
+    }
+
+    private var background: some ShapeStyle {
+        guard let aqi else {
+            return AnyShapeStyle(Color(.secondarySystemGroupedBackground))
+        }
+        let color = AqiPalette.color(aqi, isUsAqi: isUsAqi)
+        return AnyShapeStyle(
+            color.gradient
+        )
     }
 }

@@ -108,10 +108,12 @@ struct MapView: View {
                 }
             )
             .ignoresSafeArea()
-            .overlay(alignment: .bottomLeading) {
+            .overlay {
                 MapLegend()
                     .padding(.leading, 16)
                     .padding(.bottom, 12)
+                    .clearOfReservedRegions(corner: .bottomLeading, footprint: CGSize(width: 260, height: 110))
+                    .allowsHitTesting(false)
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {

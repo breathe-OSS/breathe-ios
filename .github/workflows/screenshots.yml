@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [iphone, ipad]
+        device: [iphone, ipad, duo]
 
     steps:
       - name: Checkout
@@ -40,6 +40,12 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
+
+      - name: Install hinge
+        if: matrix.device == 'duo'
+        run: |
+          git clone --depth 1 --branch v0.3.1 https://github.com/artemnovichkov/hinge.git "$RUNNER_TEMP/hinge"
+          echo "HINGE=$RUNNER_TEMP/hinge/bin/hinge" >> "$GITHUB_ENV"
 
       - name: Build for simulator
         run: |

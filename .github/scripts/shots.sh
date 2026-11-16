@@ -9,6 +9,7 @@ BUNDLE_ID=com.sidharthify.BreatheOSS
 GROUP_ID=group.com.sidharthify.BreatheOSS.BreatheWidget
 PINNED='["srinagar","kargil_town","jammu_city"]'
 PINNED_HEX=$(printf '%s' "$PINNED" | xxd -p | tr -d '\n')
+HINGE=${HINGE:-hinge}
 
 mkdir -p "$out"
 
@@ -39,6 +40,14 @@ seed_prefs() {
   done
 }
 
+capture() {
+  if [ "$device" = duo ]; then
+    "$HINGE" -d "$UDID" screenshot "$1"
+  else
+    xcrun simctl io "$UDID" screenshot "$1"
+  fi
+}
+
 shoot() {
   local name=$1 tab=$2
   shift 2
@@ -57,7 +66,7 @@ shoot() {
   if [ ! -f "$MARKER" ]; then
     echo "::warning::$name never signalled ready"
   fi
-  xcrun simctl io "$UDID" screenshot "$out/$name.png"
+  capture "$out/$name.png"
 }
 
 appearance() {
@@ -81,12 +90,31 @@ iphone_set() {
   shoot "iphone-data-sources-$mode" 3 -shotScreen dataSources
 }
 
+duo_pose() {
+  local orientation=$1 angle=$2
+  "$HINGE" -d "$UDID" orient "$orientation"
+  "$HINGE" -d "$UDID" "$angle"
+  sleep 2.5
+  "$HINGE" -d "$UDID" posture
+}
+
+duo_set() {
+  local pose=$1 mode=$2
+  shoot "duo-$pose-home-$mode" 0 -shotZone gandhi-nagar
+  shoot "duo-$pose-map-$mode" 1
+  shoot "duo-$pose-search-$mode" 2
+  shoot "duo-$pose-settings-$mode" 3
+}
+
 case "$device" in
   iphone)
     UDID=$(pick_device "iPhone 18 Pro Max" "iPhone 17 Pro Max" "iPhone")
     ;;
   ipad)
     UDID=$(pick_device "iPad Pro 13" "iPad Air 13" "iPad Pro" "iPad")
+    ;;
+  duo)
+    UDID=$(pick_device "iPhone Duo")
     ;;
   *)
     echo "Unknown device $device"
@@ -125,6 +153,23 @@ case "$device" in
     appearance dark
     shoot ipad-home-dark 0 -shotZone gandhi-nagar
     shoot ipad-search-dark 2
+    ;;
+  duo)
+    appearance light
+    duo_pose portrait close
+    duo_set closed light
+    duo_pose portrait open
+    duo_set open light
+    duo_pose portrait 110
+    duo_set book light
+    duo_pose landscape-left 110
+    duo_set laptop light
+    duo_pose landscape-left open
+    duo_set upright light
+    appearance dark
+    duo_pose portrait open
+    shoot duo-open-home-dark 0 -shotZone gandhi-nagar
+    shoot duo-open-map-dark 1
     ;;
 esac
 

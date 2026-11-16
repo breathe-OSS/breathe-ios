@@ -29,6 +29,9 @@ import SwiftUI
 
 @available(iOS 17.0, *)
 struct MainTabView: View {
+#if DEBUG
+    @EnvironmentObject private var viewModel: BreatheViewModel
+#endif
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 #if DEBUG
     @State private var selectedTab = UserDefaults.standard.integer(forKey: "initialTab")
@@ -63,6 +66,11 @@ struct MainTabView: View {
                 .tag(3)
         }
         .animation(reduceMotion ? .none : .snappy(duration: 0.25), value: selectedTab)
+#if DEBUG
+        .task {
+            await signalShotReady()
+        }
+#endif
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
             selectedTab = 0
         }
@@ -70,4 +78,32 @@ struct MainTabView: View {
             selectedTab = 2
         }
     }
+
+#if DEBUG
+    private func signalShotReady() async {
+        guard ShotHooks.isActive else {
+            return
+        }
+        ShotHooks.clearReady()
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline && !isShotDataLoaded {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        try? await Task.sleep(nanoseconds: UInt64(ShotHooks.settleSeconds * 1_000_000_000))
+        ShotHooks.markReady()
+    }
+
+    private var isShotDataLoaded: Bool {
+        if viewModel.zones.isEmpty || viewModel.isLoading {
+            return false
+        }
+        if selectedTab == 0 && !viewModel.pinnedZones.isEmpty {
+            return viewModel.currentAqi != nil
+        }
+        if selectedTab == 1 || selectedTab == 2 {
+            return viewModel.allAqiData.count >= viewModel.zones.count
+        }
+        return true
+    }
+#endif
 }

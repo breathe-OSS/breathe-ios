@@ -48,6 +48,29 @@ enum ShotHooks {
         UserDefaults.standard.string(forKey: "shotHistory")
     }
 
+    static var isActive: Bool {
+        UserDefaults.standard.object(forKey: "initialTab") != nil
+    }
+
+    static var settleSeconds: Double {
+        if screen != nil || sheet != nil || scroll != nil {
+            return 4
+        }
+        return 2.5
+    }
+
+    static var readyMarker: URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("shot-ready")
+    }
+
+    static func clearReady() {
+        try? FileManager.default.removeItem(at: readyMarker)
+    }
+
+    static func markReady() {
+        FileManager.default.createFile(atPath: readyMarker.path, contents: Data())
+    }
+
     static func nodeToOpen(in nodes: [String: NodeReading]?) -> String? {
         guard let nodes, let sheet else {
             return nil

@@ -458,20 +458,8 @@ struct HomeView: View {
                 GridRow {
                     aqiCard(aqi: aqi, response: response, fillsHeight: true)
 
-                    VStack(spacing: 16) {
-                        ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
-                            .card()
-
-                        if let weather = response.weather,
-                           !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            WeatherContextCard(weather: weather)
-                                .card()
-                        }
-
-                        cigarettesCard(cigarettes: cigarettes)
-                            .card()
-                    }
-                    .frame(maxHeight: .infinity, alignment: .top)
+                    contextGroup(aqi: aqi, advice: advice, weather: response.weather, cigarettes: cigarettes)
+                        .frame(maxHeight: .infinity, alignment: .top)
                 }
 
                 GridRow {
@@ -497,15 +485,7 @@ struct HomeView: View {
             }
         } else {
             aqiCard(aqi: aqi, response: response)
-            ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
-                .card()
-            if let weather = response.weather,
-               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                WeatherContextCard(weather: weather)
-                    .card()
-            }
-            cigarettesCard(cigarettes: cigarettes)
-                .card()
+            contextGroup(aqi: aqi, advice: advice, weather: response.weather, cigarettes: cigarettes)
             concentrationsSection(concentrations: response.concentrations)
             nodesSection(response: response)
             historySection(history: response.history, nodes: response.nodes, isAirGradient: isAirGradient)
@@ -695,6 +675,27 @@ struct HomeView: View {
             return
         }
         viewModel.selectedZone = zones[next]
+    }
+
+    private func contextGroup(aqi: Int, advice: HealthAdvice, weather: WeatherInfo?, cigarettes: Double) -> some View {
+        VStack(spacing: 0) {
+            ContextRow(systemImage: "heart.fill", tint: aqiColor(aqi), title: advice.title, detail: advice.text)
+                .padding(16)
+
+            if let weather,
+               !weather.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Divider()
+                    .padding(.leading, 68)
+                WeatherContextCard(weather: weather)
+                    .padding(16)
+            }
+
+            Divider()
+                .padding(.leading, 68)
+            cigarettesCard(cigarettes: cigarettes)
+                .padding(16)
+        }
+        .card(padding: 0)
     }
 
     private func cigarettesCard(cigarettes: Double) -> some View {

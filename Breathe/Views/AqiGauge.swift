@@ -155,8 +155,10 @@ struct AqiScaleSheet: View {
 #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Label("Done", systemImage: "checkmark")
                     }
                 }
             }

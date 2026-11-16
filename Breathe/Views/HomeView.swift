@@ -107,7 +107,7 @@ struct HomeView: View {
                         Button {
                             showReorderSheet = true
                         } label: {
-                            Image(systemName: "arrow.up.arrow.down")
+                            Label("Reorder", systemImage: "arrow.up.arrow.down")
                         }
                         .accessibilityLabel("Reorder pinned locations")
                     }

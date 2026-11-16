@@ -433,13 +433,15 @@ struct ZoneSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     if let url = URL(string: "https://breatheoss.app/zone/\(zone.id)") {
                         ShareLink(item: url, subject: Text("\(zone.name) air quality | Breathe")) {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Share", systemImage: "square.and.arrow.up")
                         }
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Label("Done", systemImage: "checkmark")
                     }
                 }
             }

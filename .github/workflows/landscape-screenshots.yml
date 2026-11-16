@@ -5,7 +5,7 @@ on:
 
 jobs:
   screenshots:
-    runs-on: macos-26
+    runs-on: xcode-27
 
     env:
       BUNDLE_ID: com.sidharthify.BreatheOSS
@@ -18,7 +18,7 @@ jobs:
 
       - name: Select Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
 
       - name: Build for simulator

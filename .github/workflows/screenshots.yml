@@ -67,9 +67,6 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
 
-      - name: Boot simulator
-        run: .github/scripts/shots.sh "${{ matrix.device }}" boot
-
       - name: Install hinge
         if: matrix.device == 'duo'
         run: |
@@ -97,6 +94,9 @@ jobs:
             build
           APP_PATH=$(find build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -n 1)
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Boot simulator
+        run: .github/scripts/shots.sh "${{ matrix.device }}" boot
 
       - name: Take screenshots
         run: .github/scripts/shots.sh "${{ matrix.device }}" "$APP_PATH" shots

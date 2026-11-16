@@ -23,7 +23,7 @@
 
 ## Download
 
-[<img alt="Download on the App Store" height="56" src="https://tools.applemarketingtools.com/api/badges/download-on-the-app-store/black/en-us?size=250x83">](https://apps.apple.com/app/id6761560112)
+[<img alt="Download on the App Store" height="56" src="assets/app-store-badge.svg">](https://apps.apple.com/app/id6761560112)
 
 ---
 

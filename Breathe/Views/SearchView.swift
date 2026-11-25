@@ -135,7 +135,8 @@ struct SearchView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    aqiChip(group.places.compactMap { viewModel.displayAqi(for: $0.id) }.max())
+                    aqiChip(headerAqi(group))
+                        .accessibilityHint("District average")
                 }
             }
         }
@@ -149,6 +150,20 @@ struct SearchView: View {
         return viewModel.districtZones.first { zone in
             zone.district == group.district && (zone.division ?? "Other") == group.division
         }
+    }
+
+    private func headerAqi(_ group: DistrictGroup) -> Int? {
+        if let zone = viewModel.districtZones.first(where: { $0.district == group.district && ($0.division ?? "Other") == group.division }),
+           let aqi = viewModel.displayAqi(for: zone.id) {
+            return aqi
+        }
+        let sensors = group.places.filter { !$0.isEstimate }
+        let targets = sensors.isEmpty ? group.places : sensors
+        let values = targets.compactMap { viewModel.displayAqi(for: $0.id) }
+        if values.isEmpty {
+            return nil
+        }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
     }
 
     private func placeRow(_ place: Zone, title: String, subtitle: String) -> some View {

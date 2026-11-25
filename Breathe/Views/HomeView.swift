@@ -514,6 +514,11 @@ struct HomeView: View {
                 } else if response.isSensorOffline {
                     Image(systemName: "wifi.slash")
                     Text("Sensor offline, showing a satellite estimate")
+                } else if (response.nodes?.count ?? 0) >= 2 {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 7, height: 7)
+                    Text("District average of \(response.nodes?.count ?? 0) ground sensors")
                 } else {
                     Circle()
                         .fill(Color.green)

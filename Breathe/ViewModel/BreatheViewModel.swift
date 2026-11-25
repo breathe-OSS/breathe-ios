@@ -33,6 +33,11 @@ import WidgetKit
 final class BreatheViewModel: ObservableObject {
 
     @Published var zones: [Zone] = []
+    @Published var districtZones: [Zone] = []
+
+    var allPlaces: [Zone] {
+        zones + districtZones
+    }
     @Published var sensorInfos: [SensorInfo] = []
     
     @Published var pinnedZoneIds: [String] = [] {
@@ -46,8 +51,9 @@ final class BreatheViewModel: ObservableObject {
     }
     
     var pinnedZones: [Zone] {
-        pinnedZoneIds.compactMap { id in
-            zones.first { $0.id == id }
+        let places = allPlaces
+        return pinnedZoneIds.compactMap { id in
+            places.first { $0.id == id }
         }
     }
 
@@ -200,12 +206,20 @@ final class BreatheViewModel: ObservableObject {
         isLoading = true
         error = nil
         do {
+            async let legacyRequest = BreatheAPI.shared.getDistrictZones()
             let fetchedZones = try await BreatheAPI.shared.getZones()
+            let legacy = (try? await legacyRequest) ?? []
             zones = fetchedZones
-            let migrated = migratePinnedIds(pinnedZoneIds, zones: fetchedZones)
-            if migrated != pinnedZoneIds {
-                pinnedZoneIds = migrated
+            districtZones = districtAverages(legacy: legacy, places: fetchedZones)
+            let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
+            if !sharedDefaults.bool(forKey: "pins_migrated_to_sensors") && !fetchedZones.isEmpty {
+                let migrated = migratePinnedIds(pinnedZoneIds, zones: fetchedZones)
+                if migrated != pinnedZoneIds {
+                    pinnedZoneIds = migrated
+                }
+                sharedDefaults.set(true, forKey: "pins_migrated_to_sensors")
             }
+            let places = allPlaces
             
             do {
                 sensorInfos = try await BreatheAPI.shared.getSensorInfo()
@@ -219,9 +233,8 @@ final class BreatheViewModel: ObservableObject {
             
             // Set selection to saved selected zone if exists, otherwise fallback to first pinned
             if selectedZone == nil {
-                let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget") ?? .standard
                 if let savedSelectedId = sharedDefaults.string(forKey: "selected_zone_id"),
-                   let matchedZone = fetchedZones.first(where: { $0.id == savedSelectedId }) {
+                   let matchedZone = places.first(where: { $0.id == savedSelectedId }) {
                     selectedZone = matchedZone
                 } else {
                     let currentPinned = pinnedZones
@@ -260,7 +273,8 @@ final class BreatheViewModel: ObservableObject {
     }
     
     func fetchAllAqiData() async {
-        let missing = zones.filter { allAqiData[$0.id] == nil }.map(\.id)
+        let places = allPlaces
+        let missing = places.filter { allAqiData[$0.id] == nil }.map(\.id)
         guard !missing.isEmpty else {
             return
         }
@@ -275,7 +289,7 @@ final class BreatheViewModel: ObservableObject {
         }
 
         await withTaskGroup(of: (String, AqiResponse?).self) { group in
-            for zone in zones where allAqiData[zone.id] == nil {
+            for zone in places where allAqiData[zone.id] == nil {
                 group.addTask {
                     do {
                         let response = try await BreatheAPI.shared.getZoneAqi(zoneId: zone.id)

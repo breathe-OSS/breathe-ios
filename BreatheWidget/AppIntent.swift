@@ -41,12 +41,12 @@ struct ZoneEntity: AppEntity {
 
 struct ZoneQuery: EntityQuery {
     func entities(for identifiers: [ZoneEntity.ID]) async throws -> [ZoneEntity] {
-        let zones = try await BreatheAPI.shared.getZones()
+        let zones = try await BreatheAPI.shared.getPlaces()
         return zones.filter { identifiers.contains($0.id) }.map { ZoneEntity(id: $0.id, name: $0.name) }
     }
     
     func suggestedEntities() async throws -> [ZoneEntity] {
-        let zones = try await BreatheAPI.shared.getZones()
+        let zones = try await BreatheAPI.shared.getPlaces()
         
         // Let's only suggest pinned zones for the widget
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
@@ -66,7 +66,7 @@ struct ZoneQuery: EntityQuery {
         let sharedDefaults = UserDefaults(suiteName: "group.com.sidharthify.BreatheOSS.BreatheWidget")
         
         do {
-            let zones = try await BreatheAPI.shared.getZones()
+            let zones = try await BreatheAPI.shared.getPlaces()
             
             // Prefer the user's selected zone from the app
             if let selectedId = sharedDefaults?.string(forKey: "selected_zone_id"),

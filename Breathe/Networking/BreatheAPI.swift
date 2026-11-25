@@ -59,6 +59,17 @@ final class BreatheAPI: @unchecked Sendable {
         return response.zones
     }
 
+    func getDistrictZones() async throws -> [Zone] {
+        let response: ZonesResponse = try await get(path: "/zones")
+        return response.zones
+    }
+
+    func getPlaces() async throws -> [Zone] {
+        let zones = try await getZones()
+        let legacy = (try? await getDistrictZones()) ?? []
+        return zones + districtAverages(legacy: legacy, places: zones)
+    }
+
     func getZoneAqi(zoneId: String) async throws -> AqiResponse {
         return try await get(path: "/aqi/zone/\(zoneId)")
     }

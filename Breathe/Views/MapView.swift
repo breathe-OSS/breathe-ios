@@ -330,6 +330,9 @@ struct ZoneSheet: View {
         if isOffline {
             return "Sensor offline, showing a satellite estimate"
         }
+        if let count = aqiData?.nodes?.count, count >= 2 {
+            return "District average of \(count) ground sensors"
+        }
         return showingRaw ? "Live ground sensor · raw readings" : "Live ground sensor"
     }
 
@@ -691,6 +694,9 @@ struct ZoneSheet: View {
         }
         if isOffline {
             return "This BreatheOSS AirGradient sensor isn't reporting right now, so these numbers are a CAMS estimate for its location, served through Open-Meteo."
+        }
+        if let count = aqiData?.nodes?.count, count >= 2 {
+            return "PM2.5 and PM10 are the average of \(count) BreatheOSS AirGradient sensors in \(zone.name). Gases come from CAMS through Open-Meteo."
         }
         let district = (aqiData?.district ?? zone.district).map { " in the \($0) district" } ?? ""
         let raw = showingRaw ? " You are seeing its raw readings, before AirGradient's correction." : ""

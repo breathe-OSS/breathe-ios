@@ -44,9 +44,10 @@ struct Zone: Codable, Identifiable, Hashable {
     var district: String? = nil
     var division: String? = nil
     var legacyZone: String? = nil
+    var sensors: Int? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, name, provider, lat, lon, kind, district, division
+        case id, name, provider, lat, lon, kind, district, division, sensors
         case legacyZone = "legacy_zone"
     }
 }
@@ -633,4 +634,36 @@ func migratePinnedIds(_ pinned: [String], zones: [Zone]) -> [String] {
         }
     }
     return next
+}
+
+func districtAverages(legacy: [Zone], places: [Zone]) -> [Zone] {
+    legacy.compactMap { zone in
+        let members = places.filter { !$0.isEstimate && $0.legacyZone == zone.id }
+        guard members.count >= 2 else {
+            return nil
+        }
+        var counts: [String: Int] = [:]
+        for member in members {
+            counts[member.district ?? zone.name, default: 0] += 1
+        }
+        let district = counts.max { lhs, rhs in
+            if lhs.value != rhs.value {
+                return lhs.value < rhs.value
+            }
+            return lhs.key > rhs.key
+        }?.key ?? zone.name
+        let home = members.first { $0.district == district } ?? members[0]
+        return Zone(
+            id: zone.id,
+            name: "\(district) district average",
+            provider: zone.provider,
+            lat: zone.lat,
+            lon: zone.lon,
+            kind: "district",
+            district: district,
+            division: home.division,
+            legacyZone: nil,
+            sensors: members.count
+        )
+    }
 }

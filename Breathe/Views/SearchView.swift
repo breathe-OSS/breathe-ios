@@ -118,6 +118,9 @@ struct SearchView: View {
             placeRow(place, title: "\(group.district) district", subtitle: summary(group))
         } else {
             DisclosureGroup {
+                if let average = districtAverage(for: group) {
+                    placeRow(average, title: "District average", subtitle: "Average of \(average.sensors ?? 2) sensors")
+                }
                 ForEach(group.places) { place in
                     placeRow(place, title: place.name, subtitle: kindText(place))
                 }
@@ -138,6 +141,16 @@ struct SearchView: View {
         }
     }
 
+    private func districtAverage(for group: DistrictGroup) -> Zone? {
+        let needle = searchText.trimmingCharacters(in: .whitespaces)
+        if !needle.isEmpty && !group.district.localizedCaseInsensitiveContains(needle) {
+            return nil
+        }
+        return viewModel.districtZones.first { zone in
+            zone.district == group.district && (zone.division ?? "Other") == group.division
+        }
+    }
+
     private func placeRow(_ place: Zone, title: String, subtitle: String) -> some View {
         let isPinned = viewModel.pinnedZoneIds.contains(place.id)
         return HStack(spacing: 12) {
@@ -151,7 +164,7 @@ struct SearchView: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
                         HStack(spacing: 4) {
-                            if !place.isEstimate {
+                            if !place.isEstimate && place.kind != "district" {
                                 Circle()
                                     .fill(isOffline(place) ? Color.gray : Color.green)
                                     .frame(width: 6, height: 6)

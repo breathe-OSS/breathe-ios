@@ -730,7 +730,12 @@ struct ExtendedHistoryView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ExtendedDotGrid(data: mapped, showPm25: true, showPm10: true)
+                ExtendedDotGrid(
+                    data: mapped,
+                    showPm25: true,
+                    showPm10: true,
+                    isUsAqi: state.metric == .naqi ? false : (state.metric == .aqi ? true : viewModel.isUsAqi)
+                )
             }
         }
         .card()

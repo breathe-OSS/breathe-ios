@@ -55,6 +55,7 @@ struct ExtendedDotGrid: View {
     let data: [HistoricalDataPoint]
     let showPm25: Bool
     let showPm10: Bool
+    var isUsAqi: Bool = true
 
     @State private var selectedID: String? = nil
     @State private var selectedLabel: String? = nil
@@ -111,7 +112,7 @@ struct ExtendedDotGrid: View {
                 calendarGrid(model)
             }
 
-            AqiLegend(isUsAqi: true)
+            AqiLegend(isUsAqi: isUsAqi)
                 .padding(.top, 4)
         }
     }
@@ -286,10 +287,10 @@ struct ExtendedDotGrid: View {
     private func cellAqi(_ pm25: Double?, _ pm10: Double?) -> Int? {
         var aqi: Int? = nil
         if use25, let value = pm25 {
-            aqi = usAqiPm25(value)
+            aqi = isUsAqi ? usAqiPm25(value) : naqiFromPm25(value)
         }
         if use10, let value = pm10 {
-            let candidate = usAqiPm10(value)
+            let candidate = isUsAqi ? usAqiPm10(value) : naqiPm10(value)
             aqi = aqi.map { max($0, candidate) } ?? candidate
         }
         return aqi
@@ -332,7 +333,16 @@ struct ExtendedDotGrid: View {
         return interpolate(c, 505, 604, 401, 500)
     }
 
+    private func naqiPm10(_ pm: Double) -> Int {
+        let c = pm.rounded()
+        if c <= 100 { return interpolate(c, 0, 100, 0, 100) }
+        if c <= 250 { return interpolate(c, 101, 250, 101, 200) }
+        if c <= 350 { return interpolate(c, 251, 350, 201, 300) }
+        if c <= 430 { return interpolate(c, 351, 430, 301, 400) }
+        return min(interpolate(c, 431, 510, 401, 500), 500)
+    }
+
     private func usAqiColor(_ value: Int) -> Color {
-        AqiPalette.color(value, isUsAqi: true)
+        AqiPalette.color(value, isUsAqi: isUsAqi)
     }
 }

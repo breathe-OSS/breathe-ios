@@ -402,7 +402,41 @@ struct ExtendedHistoryView: View {
         if bucket >= 86400 {
             return date.formatted(.dateTime.day().month(.abbreviated))
         }
+        if bucket < 3600 {
+            return date.formatted(.dateTime.day().month(.abbreviated).hour().minute())
+        }
         return date.formatted(.dateTime.day().month(.abbreviated).hour())
+    }
+
+    private func stepLabel(_ bucket: Int) -> String {
+        if bucket >= 86400 {
+            let days = Int((Double(bucket) / 86400).rounded())
+            return days == 1 ? "daily averages" : "\(days) day averages"
+        }
+        if bucket == 3600 {
+            return "hourly"
+        }
+        if bucket > 3600 {
+            return "\(Int((Double(bucket) / 3600).rounded())) hour averages"
+        }
+        let minutes = max(Int((Double(bucket) / 60).rounded()), 1)
+        return minutes == 1 ? "every minute" : "every \(minutes) minutes"
+    }
+
+    private func stepUnit(_ bucket: Int) -> String {
+        if bucket == 3600 {
+            return "hours"
+        }
+        if bucket == 86400 {
+            return "days"
+        }
+        if bucket > 86400 {
+            return "\(Int((Double(bucket) / 86400).rounded())) day steps"
+        }
+        if bucket > 3600 {
+            return "\(Int((Double(bucket) / 3600).rounded())) hour steps"
+        }
+        return "\(max(Int((Double(bucket) / 60).rounded()), 1)) minute steps"
     }
 
     // MARK: - Summary
@@ -431,7 +465,7 @@ struct ExtendedHistoryView: View {
         let coverage = expected > 0 ? min(100, Int((Double(rows.count) * 100 / Double(expected)).rounded())) : 0
         let foot: String
         if state.weatherFilter == "all" {
-            foot = "\(coverage)% of \(step <= 3600 ? "hours" : "buckets") have readings"
+            foot = "\(coverage)% of \(stepUnit(step)) have readings"
         } else {
             let label = weatherFilterLabels.first { $0.condition == state.weatherFilter }?.label.lowercased() ?? state.weatherFilter
             foot = "Only \(label) hours, \(points.count) of \(rows.count)"
@@ -648,7 +682,7 @@ struct ExtendedHistoryView: View {
                 }
             )
         }
-        let step = bucket >= 86400 ? "daily averages" : (bucket >= 4 * 3600 ? "4 hour averages" : "hourly")
+        let step = stepLabel(bucket)
         let shaded = state.metric.bands == nil ? "" : ", shaded by \(state.metric.indexName) category"
 
         return VStack(alignment: .leading, spacing: 10) {
